@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+} 
+
+model Cliente {
+  id              Int       @id @default(autoincrement())
+  nombre          String
+  apellido        String
+  fechaNacimiento DateTime  @map("fecha_nacimiento") @db.Date
+  dni             String    @unique
+  telefono        String
+  email           String    @unique
+  nacionalidad    String
+  discapacidad    Boolean   @default(false)
+  pasaporte       String?
+  yaViajo         Boolean   @default(false) @map("ya_viajo")
+  reservas        Reserva[]
+  alta            DateTime  @default(now()) @map("alta")
+  modificacion    DateTime  @updatedAt @map("modificacion")
+  baja            DateTime? @map("baja")
+
+  @@map("clientes")
+}
+
+model Viaje {
+  id           Int          @id @default(autoincrement())
+  lugarSalida  String       @map("lugar_salida")
+  lugarLlegada String       @map("lugar_llegada")
+  fechaSalida  DateTime     @map("fecha_salida") @db.Date
+  fechaLlegada DateTime     @map("fecha_llegada") @db.Date
+  tramos       Tramo[]
+  cotizaciones Cotizacion[]
+  alta         DateTime     @default(now()) @map("alta")
+  modificacion DateTime     @updatedAt @map("modificacion")
+  baja         DateTime?    @map("baja")
+
+  @@map("viajes")
+}
+
+model Tramo {
+  id                Int       @id @default(autoincrement())
+  aeropuertoSalida  String    @map("aeropuerto_salida")
+  horarioSalida     DateTime  @map("horario_salida")
+  aeropuertoLlegada String    @map("aeropuerto_llegada")
+  horarioLlegada    DateTime  @map("horario_llegada")
+  orden             Int
+  viajeId           Int       @map("viaje_id")
+  viaje             Viaje     @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  alta              DateTime  @default(now()) @map("alta")
+  modificacion      DateTime  @updatedAt @map("modificacion")
+  baja              DateTime? @map("baja")
+
+  @@map("tramos")
+}
+
+model Cotizacion {
+  id              Int       @id @default(autoincrement())
+  aerolinea       String
+  precioDolares   Decimal   @map("precio_dolares") @db.Decimal(10, 2)
+  precioPesos     Decimal   @map("precio_pesos") @db.Decimal(12, 2)
+  cantidadValijas Int       @map("cantidad_valijas")
+  extra           String?
+  extraPrecio     Decimal?  @map("extra_precio") @db.Decimal(10, 2)
+  clase           String
+  viajeId         Int       @map("viaje_id")
+  viaje           Viaje     @relation(fields: [viajeId], references: [id], onDelete: Restrict)
+  reservasIda     Reserva[] @relation("CotizacionIda")
+  reservasVuelta  Reserva[] @relation("CotizacionVuelta")
+  alta            DateTime  @default(now()) @map("alta")
+  modificacion    DateTime  @updatedAt @map("modificacion")
+  baja            DateTime? @map("baja")
+
+  @@map("cotizaciones")
+}
+
+model AdminUser {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  nombre       String
+  passwordHash String    @map("password_hash")
+  alta         DateTime  @default(now()) @map("alta")
+  modificacion DateTime  @updatedAt @map("modificacion")
+  baja         DateTime? @map("baja")
+
+  @@map("admin_users")
+}
+
+model Reserva {
+  id                 Int         @id @default(autoincrement())
+  clienteId          Int         @map("cliente_id")
+  cliente            Cliente     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  cotizacionIdaId    Int         @map("cotizacion_ida_id")
+  cotizacionIda      Cotizacion  @relation("CotizacionIda", fields: [cotizacionIdaId], references: [id], onDelete: Restrict)
+  cotizacionVueltaId Int?        @map("cotizacion_vuelta_id")
+  cotizacionVuelta   Cotizacion? @relation("CotizacionVuelta", fields: [cotizacionVueltaId], references: [id], onDelete: SetNull)
+  saldoCliente       Decimal     @map("saldo_cliente") @db.Decimal(12, 2)
+  saldoVendedor      Decimal     @map("saldo_vendedor") @db.Decimal(12, 2)
+  finalizado         Boolean     @default(false)
+  alta               DateTime    @default(now()) @map("alta")
+  modificacion       DateTime    @updatedAt @map("modificacion")
+  baja               DateTime?   @map("baja")
+
+  @@map("reservas")
+}
