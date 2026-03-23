@@ -23,7 +23,7 @@ app.use('/api/reservas', reservasRouter)
 app.use('/api/admin-users', adminUsersRouter)
 
 // Health check
-app.get('/', (req, res) => res.json({ message: 'API funcionando ✅' }))
+app.get('/api', (req, res) => res.json({ message: 'API funcionando ✅' }))
 
 // Handler global de errores
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
