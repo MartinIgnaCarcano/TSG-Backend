@@ -7,76 +7,163 @@ datasource db {
   url      = env("DATABASE_URL")
 } 
 
+
+// =====================================================
+// CLIENTE
+// =====================================================
 model Cliente {
-  id              Int       @id @default(autoincrement())
+  id              String   @id @default(cuid())
+  numeroCliente   String   @unique @map("numero_cliente")
   nombre          String
   apellido        String
-  fechaNacimiento DateTime  @map("fecha_nacimiento") @db.Date
-  dni             String    @unique
+  email           String
   telefono        String
-  email           String    @unique
-  nacionalidad    String
-  discapacidad    Boolean   @default(false)
-  pasaporte       String?
-  yaViajo         Boolean   @default(false) @map("ya_viajo")
+  cotizaciones    Cotizacion[]
   reservas        Reserva[]
-  alta            DateTime  @default(now()) @map("alta")
-  modificacion    DateTime  @updatedAt @map("modificacion")
+  alta            DateTime @default(now()) @map("alta")
+  modificacion    DateTime @updatedAt @map("modificacion")
   baja            DateTime? @map("baja")
 
   @@map("clientes")
 }
 
+// =====================================================
+// DESTINO
+// =====================================================
+model Destino {
+  id              String   @id @default(cuid())
+  nombre          String
+  codigoIATA      String   @unique @map("codigo_iata")
+  pais            String
+  timezone        String   @default("UTC") // ej: "America/Argentina/Buenos_Aires"
+  // Relaciones inversas
+  tramosOrigen    Tramo[]  @relation("TramoOrigen")
+  tramosDestino   Tramo[]  @relation("TramoDestino")
+  viajesTorigen   Viaje[]  @relation("ViajeOrigen")
+  viajesToDestino Viaje[]  @relation("ViajeDestino")
+  alta            DateTime @default(now()) @map("alta")
+  modificacion    DateTime @updatedAt @map("modificacion")
+  baja            DateTime? @map("baja")
+
+  @@map("destinos")
+}
+
+// =====================================================
+// VIAJE
+// =====================================================
 model Viaje {
-  id           Int          @id @default(autoincrement())
-  lugarSalida  String       @map("lugar_salida")
-  lugarLlegada String       @map("lugar_llegada")
-  fechaSalida  DateTime     @map("fecha_salida") @db.Date
-  fechaLlegada DateTime     @map("fecha_llegada") @db.Date
-  tramos       Tramo[]
-  cotizaciones Cotizacion[]
-  alta         DateTime     @default(now()) @map("alta")
-  modificacion DateTime     @updatedAt @map("modificacion")
-  baja         DateTime?    @map("baja")
+  id              String   @id @default(cuid())
+  origenId        String   @map("origen_id")
+  origen          Destino  @relation("ViajeOrigen", fields: [origenId], references: [id])
+  destinoId       String   @map("destino_id")
+  destino         Destino  @relation("ViajeDestino", fields: [destinoId], references: [id])
+  tieneEscalas    Boolean  @map("tiene_escalas")
+  descripcion     String?
+  tramos          Tramo[]
+  cotizaciones    Cotizacion[]
+  alta            DateTime @default(now()) @map("alta")
+  modificacion    DateTime @updatedAt @map("modificacion")
+  baja            DateTime? @map("baja")
 
   @@map("viajes")
 }
 
+// =====================================================
+// TRAMO
+// =====================================================
 model Tramo {
-  id                Int       @id @default(autoincrement())
-  aeropuertoSalida  String    @map("aeropuerto_salida")
-  horarioSalida     DateTime  @map("horario_salida")
-  aeropuertoLlegada String    @map("aeropuerto_llegada")
-  horarioLlegada    DateTime  @map("horario_llegada")
-  orden             Int
-  viajeId           Int       @map("viaje_id")
-  viaje             Viaje     @relation(fields: [viajeId], references: [id], onDelete: Cascade)
-  alta              DateTime  @default(now()) @map("alta")
-  modificacion      DateTime  @updatedAt @map("modificacion")
-  baja              DateTime? @map("baja")
+  id              String   @id @default(cuid())
+  viajeId         String   @map("viaje_id")
+  viaje           Viaje    @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  origenId        String   @map("origen_id")
+  origen          Destino  @relation("TramoOrigen", fields: [origenId], references: [id])
+  destinoId       String   @map("destino_id")
+  destino         Destino  @relation("TramoDestino", fields: [destinoId], references: [id])
+  completo        Boolean  @default(false)
+  orden           Int?
+  duracionMinutos Int?     @map("duracion_minutos")
+  horaSalida      DateTime? @map("hora_salida") // UTC timestamp
+  horaLlegada     DateTime? @map("hora_llegada") // UTC timestamp
+  aerolinea       String?
+  alta            DateTime @default(now()) @map("alta")
+  modificacion    DateTime @updatedAt @map("modificacion")
+  baja            DateTime? @map("baja")
 
   @@map("tramos")
 }
 
+// =====================================================
+// COTIZACION
+// =====================================================
 model Cotizacion {
-  id              Int       @id @default(autoincrement())
-  aerolinea       String
-  precioDolares   Decimal   @map("precio_dolares") @db.Decimal(10, 2)
-  precioPesos     Decimal   @map("precio_pesos") @db.Decimal(12, 2)
-  cantidadValijas Int       @map("cantidad_valijas")
-  extra           String?
-  extraPrecio     Decimal?  @map("extra_precio") @db.Decimal(10, 2)
-  clase           String
-  viajeId         Int       @map("viaje_id")
-  viaje           Viaje     @relation(fields: [viajeId], references: [id], onDelete: Restrict)
-  reservasIda     Reserva[] @relation("CotizacionIda")
-  reservasVuelta  Reserva[] @relation("CotizacionVuelta")
-  alta            DateTime  @default(now()) @map("alta")
-  modificacion    DateTime  @updatedAt @map("modificacion")
+  id              String   @id @default(cuid())
+  viajeId         String   @map("viaje_id")
+  viaje           Viaje    @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  clienteId       String   @map("cliente_id")
+  cliente         Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  numeroCotizacion String  @unique @map("numero_cotizacion")
+  estado          EstadoCotizacion @default(PENDIENTE)
+  fechaCotizacion DateTime @default(now()) @map("fecha_cotizacion")
+  fechaVencimiento DateTime @map("fecha_vencimiento") @db.Date
+  moneda          String   // ej: "USD", "ARS"
+  ofertaExternaID String?  @map("oferta_externa_id")
+  precioIda       Decimal  @db.Decimal(12, 2) @map("precio_ida")
+  precioVuelta    Decimal  @db.Decimal(12, 2) @map("precio_vuelta")
+  precioIdaYVuelta Decimal @db.Decimal(12, 2) @map("precio_ida_y_vuelta")
+  impuestos       Decimal  @db.Decimal(12, 2)
+  observaciones   String?
+  reservas        Reserva[]
+  alta            DateTime @default(now()) @map("alta")
+  modificacion    DateTime @updatedAt @map("modificacion")
   baja            DateTime? @map("baja")
 
   @@map("cotizaciones")
 }
+
+// =====================================================
+// RESERVA
+// =====================================================
+model Reserva {
+  id              String   @id @default(cuid())
+  cotizacionId    String   @map("cotizacion_id")
+  cotizacion      Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  clienteId       String   @map("cliente_id")
+  cliente         Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  tipoReserva     TipoReserva
+  montoFinal      Decimal  @db.Decimal(12, 2) @map("monto_final")
+  numeroReserva   String   @unique @map("numero_reserva")
+  estado          EstadoReserva @default(EN_PROCESO)
+  fechaReserva    DateTime @default(now()) @map("fecha_reserva")
+  observaciones   String?
+  alta            DateTime @default(now()) @map("alta")
+  modificacion    DateTime @updatedAt @map("modificacion")
+  baja            DateTime? @map("baja")
+
+  @@map("reservas")
+}
+
+// =====================================================
+// ENUMS
+// =====================================================
+enum EstadoCotizacion {
+  PENDIENTE
+  ENVIADA
+  ACEPTADA
+  VENCIDA
+}
+
+enum TipoReserva {
+  IDA
+  VUELTA
+  IDA_Y_VUELTA
+}
+
+enum EstadoReserva {
+  CONFIRMADA
+  CANCELADA
+  EN_PROCESO
+}
+
 
 model AdminUser {
   id           Int       @id @default(autoincrement())
@@ -88,22 +175,4 @@ model AdminUser {
   baja         DateTime? @map("baja")
 
   @@map("admin_users")
-}
-
-model Reserva {
-  id                 Int         @id @default(autoincrement())
-  clienteId          Int         @map("cliente_id")
-  cliente            Cliente     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  cotizacionIdaId    Int         @map("cotizacion_ida_id")
-  cotizacionIda      Cotizacion  @relation("CotizacionIda", fields: [cotizacionIdaId], references: [id], onDelete: Restrict)
-  cotizacionVueltaId Int?        @map("cotizacion_vuelta_id")
-  cotizacionVuelta   Cotizacion? @relation("CotizacionVuelta", fields: [cotizacionVueltaId], references: [id], onDelete: SetNull)
-  saldoCliente       Decimal     @map("saldo_cliente") @db.Decimal(12, 2)
-  saldoVendedor      Decimal     @map("saldo_vendedor") @db.Decimal(12, 2)
-  finalizado         Boolean     @default(false)
-  alta               DateTime    @default(now()) @map("alta")
-  modificacion       DateTime    @updatedAt @map("modificacion")
-  baja               DateTime?   @map("baja")
-
-  @@map("reservas")
 }

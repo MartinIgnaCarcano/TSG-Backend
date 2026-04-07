@@ -1,0 +1,380 @@
+{
+  "name": "Duffel Flight Search & AI Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "flight-search",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const departure = $json.body.departure_date;\nconst returnDate = $json.body.return_date;\nconst origin = $json.body.origin;\nconst destination = $json.body.destination;\nconst passengers = $json.body.passengers || 1;\n\nfunction addDays(dateStr, days) {\n  const d = new Date(dateStr);\n  d.setDate(d.getDate() + days);\n  return d.toISOString().split('T')[0];\n}\n\nconst offsets = [-2, -1, 0, 1, 2];\nconst combinations = [];\n\nfor (const depOffset of offsets) {\n  const newDep = addDays(departure, depOffset);\n  if (returnDate) {\n    for (const retOffset of offsets) {\n      const newRet = addDays(returnDate, retOffset);\n      if (new Date(newRet) > new Date(newDep)) {\n        combinations.push({\n          origin,\n          destination,\n          departure_date: newDep,\n          return_date: newRet,\n          passengers: parseInt(passengers),\n          original_departure: departure,\n          original_return: returnDate\n        });\n      }\n    }\n  } else {\n    combinations.push({\n      origin,\n      destination,\n      departure_date: newDep,\n      return_date: null,\n      passengers: parseInt(passengers),\n      original_departure: departure,\n      original_return: null\n    });\n  }\n}\n\nreturn combinations.map(c => ({ json: c }));"
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Generate Date Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.duffel.com/air/offer_requests?return_offers=false",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$vars.DUFFEL_TOKEN}}"
+            },
+            {
+              "name": "Duffel-Version",
+              "value": "v2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"data\": {\n    \"slices\": [\n      {\n        \"origin\": \"{{ $json.origin }}\",\n        \"destination\": \"{{ $json.destination }}\",\n        \"departure_date\": \"{{ $json.departure_date }}\"\n      }{{ $json.return_date ? ',\\n      {\\n        \"origin\": \"' + $json.destination + '\",\\n        \"destination\": \"' + $json.origin + '\",\\n        \"departure_date\": \"' + $json.return_date + '\"\\n      }' : '' }}\n    ],\n    \"passengers\": [\n      {{ Array.from({length: $json.passengers}, () => '{\"type\": \"adult\"}').join(',') }}\n    ],\n    \"cabin_class\": \"economy\"\n  }\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "POST Offer Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const offerRequestId = $json.data?.id;\nconst departureDate = $('Generate Date Range').item.json.departure_date;\nconst returnDate = $('Generate Date Range').item.json.return_date;\nconst origin = $('Generate Date Range').item.json.origin;\nconst destination = $('Generate Date Range').item.json.destination;\nconst passengers = $('Generate Date Range').item.json.passengers;\n\nif (!offerRequestId) {\n  throw new Error('No offer_request_id returned from Duffel');\n}\n\nreturn [{\n  json: {\n    offer_request_id: offerRequestId,\n    departure_date: departureDate,\n    return_date: returnDate,\n    origin,\n    destination,\n    passengers\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Extract Offer Request ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.duffel.com/air/offers?offer_request_id={{ $json.offer_request_id }}&sort=total_amount&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$vars.DUFFEL_TOKEN}}"
+            },
+            {
+              "name": "Duffel-Version",
+              "value": "v2"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0005-0005-0005-000000000005",
+      "name": "GET Best Offer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const offerData = $json.data?.[0];\nconst requestMeta = $('Extract Offer Request ID').item.json;\n\nif (!offerData) {\n  return [{\n    json: {\n      departure_date: requestMeta.departure_date,\n      return_date: requestMeta.return_date,\n      origin: requestMeta.origin,\n      destination: requestMeta.destination,\n      passengers: requestMeta.passengers,\n      offer_id: null,\n      total_amount: null,\n      total_currency: null,\n      stops: null,\n      airline: null,\n      duration: null,\n      error: 'No offers found for this date combination'\n    }\n  }];\n}\n\nconst slice = offerData.slices?.[0];\nconst segment = slice?.segments?.[0];\nconst stops = slice?.segments?.length ? slice.segments.length - 1 : 0;\nconst airline = segment?.operating_carrier?.name || segment?.marketing_carrier?.name || 'Unknown';\nconst duration = slice?.duration || null;\n\nconst depDate = new Date(requestMeta.departure_date);\nconst weekdays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];\nconst weekday = weekdays[depDate.getDay()];\n\nreturn [{\n  json: {\n    departure_date: requestMeta.departure_date,\n    return_date: requestMeta.return_date,\n    origin: requestMeta.origin,\n    destination: requestMeta.destination,\n    passengers: requestMeta.passengers,\n    weekday,\n    offer_id: offerData.id,\n    total_amount: parseFloat(offerData.total_amount),\n    total_currency: offerData.total_currency,\n    stops,\n    airline,\n    duration,\n    expires_at: offerData.expires_at\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0006-0006-0006-000000000006",
+      "name": "Format Offer Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "all_flights",
+        "include": "allFields",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0007-0007-0007-000000000007",
+      "name": "Aggregate All Flights",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const flights = $json.all_flights || [];\nconst validFlights = flights.filter(f => f.total_amount !== null);\n\nif (validFlights.length === 0) {\n  return [{\n    json: {\n      flights_summary: 'No se encontraron vuelos disponibles para el rango de fechas solicitado.',\n      raw_data: flights,\n      flight_count: 0\n    }\n  }];\n}\n\nconst summary = validFlights.map(f => \n  `Fecha: ${f.departure_date} (${f.weekday}) | ` +\n  `Precio: ${f.total_amount} ${f.total_currency} | ` +\n  `Escalas: ${f.stops} | ` +\n  `Aerolínea: ${f.airline} | ` +\n  `Duración: ${f.duration || 'N/D'}` +\n  (f.return_date ? ` | Vuelta: ${f.return_date}` : '')\n).join('\\n');\n\nreturn [{\n  json: {\n    flights_summary: summary,\n    raw_data: validFlights,\n    flight_count: validFlights.length,\n    origin: validFlights[0]?.origin,\n    destination: validFlights[0]?.destination\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0008-0008-0008-000000000008",
+      "name": "Prepare AI Prompt Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-pro-latest",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0009-0009-0009-000000000009",
+      "name": "Gemini AI Analysis",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [2000, 560],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "gemini-credentials",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "prompt": "=Analizá estos vuelos disponibles entre {{ $('Prepare AI Prompt Data').item.json.origin }} y {{ $('Prepare AI Prompt Data').item.json.destination }}.\n\nDatos de vuelos encontrados ({{ $('Prepare AI Prompt Data').item.json.flight_count }} opciones):\n\n{{ $('Prepare AI Prompt Data').item.json.flights_summary }}\n\nCompará precio vs. escalas vs. día de la semana. Considerá que los vuelos de mitad de semana suelen ser más baratos. Tené en cuenta la relación entre escalas y precio. Decime cuál es el mejor costo-beneficio explicando por qué. Respondé en texto amigable, claro y en español.",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0010-0010-0010-000000000010",
+      "name": "AI Flight Analysis",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiAnalysis = $json.text || $json.response || 'Análisis no disponible';\nconst rawData = $('Prepare AI Prompt Data').item.json.raw_data || [];\nconst now = new Date();\nconst generatedAt = now.toLocaleString('es-AR', {\n  timeZone: 'America/Argentina/Buenos_Aires',\n  dateStyle: 'full',\n  timeStyle: 'medium'\n});\n\nconst origin = $('Prepare AI Prompt Data').item.json.origin;\nconst destination = $('Prepare AI Prompt Data').item.json.destination;\n\nlet reportText = `========================================\\n`;\nreportText += `   REPORTE DE VUELOS - ANÁLISIS IA\\n`;\nreportText += `========================================\\n`;\nreportText += `Generado: ${generatedAt}\\n`;\nreportText += `Ruta: ${origin} → ${destination}\\n`;\nreportText += `Vuelos analizados: ${rawData.length}\\n`;\nreportText += `\\n========================================\\n`;\nreportText += `   ANÁLISIS DE COSTO-BENEFICIO (IA)\\n`;\nreportText += `========================================\\n`;\nreportText += aiAnalysis;\nreportText += `\\n\\n========================================\\n`;\nreportText += `   DATOS CRUDOS DE VUELOS\\n`;\nreportText += `========================================\\n`;\n\nrawData.forEach((flight, index) => {\n  reportText += `\\n--- Opción ${index + 1} ---\\n`;\n  reportText += `Fecha salida:  ${flight.departure_date} (${flight.weekday || 'N/D'})\\n`;\n  if (flight.return_date) {\n    reportText += `Fecha regreso: ${flight.return_date}\\n`;\n  }\n  reportText += `Aerolínea:     ${flight.airline || 'N/D'}\\n`;\n  reportText += `Precio total:  ${flight.total_amount} ${flight.total_currency || ''}\\n`;\n  reportText += `Escalas:       ${flight.stops ?? 'N/D'}\\n`;\n  reportText += `Duración:      ${flight.duration || 'N/D'}\\n`;\n  if (flight.offer_id) {\n    reportText += `Offer ID:      ${flight.offer_id}\\n`;\n  }\n});\n\nreportText += `\\n========================================\\n`;\nreportText += `   FIN DEL REPORTE\\n`;\nreportText += `========================================\\n`;\n\nconst binaryData = Buffer.from(reportText, 'utf-8').toString('base64');\n\nreturn [{\n  json: {\n    ai_analysis: aiAnalysis,\n    generated_at: generatedAt,\n    flight_count: rawData.length\n  },\n  binary: {\n    data: {\n      data: binaryData,\n      mimeType: 'text/plain',\n      fileName: 'vuelos_reporte.txt',\n      fileExtension: 'txt'\n    }\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0011-0011-0011-000000000011",
+      "name": "Build Report Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "fileName": "/tmp/vuelos_reporte.txt",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0012-0012-0012-000000000012",
+      "name": "Write Report File",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [2440, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"analysis\": {{ JSON.stringify($('Build Report Content').item.json.ai_analysis) }},\n  \"flights_analyzed\": {{ $('Build Report Content').item.json.flight_count }},\n  \"report_generated_at\": {{ JSON.stringify($('Build Report Content').item.json.generated_at) }},\n  \"report_file\": \"vuelos_reporte.txt\"\n}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a1b2c3d4-0013-0013-0013-000000000013",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2660, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generate Date Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Date Range": {
+      "main": [
+        [
+          {
+            "node": "POST Offer Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Offer Request": {
+      "main": [
+        [
+          {
+            "node": "Extract Offer Request ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Offer Request ID": {
+      "main": [
+        [
+          {
+            "node": "GET Best Offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Best Offer": {
+      "main": [
+        [
+          {
+            "node": "Format Offer Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Offer Data": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Flights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Flights": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt Data": {
+      "main": [
+        [
+          {
+            "node": "AI Flight Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Analysis": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Flight Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Flight Analysis": {
+      "main": [
+        [
+          {
+            "node": "Build Report Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Report Content": {
+      "main": [
+        [
+          {
+            "node": "Write Report File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Report File": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "flights",
+      "createdAt": "2026-03-25T00:00:00.000Z",
+      "updatedAt": "2026-03-25T00:00:00.000Z"
+    },
+    {
+      "name": "duffel",
+      "createdAt": "2026-03-25T00:00:00.000Z",
+      "updatedAt": "2026-03-25T00:00:00.000Z"
+    },
+    {
+      "name": "ai-analysis",
+      "createdAt": "2026-03-25T00:00:00.000Z",
+      "updatedAt": "2026-03-25T00:00:00.000Z"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1",
+  "triggerCount": 1,
+  "active": false
+}
