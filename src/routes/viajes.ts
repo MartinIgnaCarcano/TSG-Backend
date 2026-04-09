@@ -9,10 +9,12 @@ router.get('/', async (req: Request, res: Response) => {
     const viajes = await prisma.viaje.findMany({
       where: { baja: null },
       include: {
+        origen: true,
+        destino: true,
         tramos: { where: { baja: null }, orderBy: { orden: 'asc' } },
         cotizaciones: { where: { baja: null } },
       },
-      orderBy: { fechaSalida: 'asc' },
+      orderBy: { alta: 'asc' },
     })
     res.json(viajes)
   } catch (e: any) {
@@ -24,8 +26,10 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const viaje = await prisma.viaje.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id as string },
       include: {
+        origen: true,
+        destino: true,
         tramos: { where: { baja: null }, orderBy: { orden: 'asc' } },
         cotizaciones: { where: { baja: null } },
       },
@@ -37,29 +41,34 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 })
 
-// POST /api/viajes  (crea el viaje con sus tramos en una sola operación)
+// POST /api/viajes
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { lugarSalida, lugarLlegada, fechaSalida, fechaLlegada, tramos } = req.body
+    const { origenId, destinoId, tieneEscalas, descripcion, tramos } = req.body
     const viaje = await prisma.viaje.create({
       data: {
-        lugarSalida,
-        lugarLlegada,
-        fechaSalida: new Date(fechaSalida),
-        fechaLlegada: new Date(fechaLlegada),
+        origenId,
+        destinoId,
+        tieneEscalas,
+        descripcion,
         tramos: tramos
           ? {
               create: tramos.map((t: any) => ({
-                aeropuertoSalida: t.aeropuertoSalida,
-                horarioSalida: new Date(t.horarioSalida),
-                aeropuertoLlegada: t.aeropuertoLlegada,
-                horarioLlegada: new Date(t.horarioLlegada),
+                origenId: t.origenId,
+                destinoId: t.destinoId,
                 orden: t.orden,
+                duracionMinutos: t.duracionMinutos,
+                horaSalida: t.horaSalida ? new Date(t.horaSalida) : undefined,
+                horaLlegada: t.horaLlegada ? new Date(t.horaLlegada) : undefined,
+                aerolinea: t.aerolinea,
+                completo: t.completo ?? false,
               })),
             }
           : undefined,
       },
       include: {
+        origen: true,
+        destino: true,
         tramos: { orderBy: { orden: 'asc' } },
       },
     })
@@ -72,15 +81,10 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/viajes/:id
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { lugarSalida, lugarLlegada, fechaSalida, fechaLlegada } = req.body
+    const { origenId, destinoId, tieneEscalas, descripcion } = req.body
     const viaje = await prisma.viaje.update({
-      where: { id: Number(req.params.id) },
-      data: {
-        lugarSalida,
-        lugarLlegada,
-        ...(fechaSalida && { fechaSalida: new Date(fechaSalida) }),
-        ...(fechaLlegada && { fechaLlegada: new Date(fechaLlegada) }),
-      },
+      where: { id: req.params.id as string },
+      data: { origenId, destinoId, tieneEscalas, descripcion },
     })
     res.json(viaje)
   } catch (e: any) {
@@ -93,15 +97,15 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const [, , viaje] = await prisma.$transaction([
       prisma.tramo.updateMany({
-        where: { viajeId: Number(req.params.id) },
+        where: { viajeId: req.params.id as string },
         data: { baja: new Date() },
       }),
       prisma.cotizacion.updateMany({
-        where: { viajeId: Number(req.params.id) },
+        where: { viajeId: req.params.id as string },
         data: { baja: new Date() },
       }),
       prisma.viaje.update({
-        where: { id: Number(req.params.id) },
+        where: { id: req.params.id as string },
         data: { baja: new Date() },
       }),
     ])

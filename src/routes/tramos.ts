@@ -3,12 +3,13 @@ import { prisma } from '../lib/prisma'
 
 const router = Router()
 
-// GET /api/tramos?viajeId=1
+// GET /api/tramos?viajeId=...
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const viajeId = req.query.viajeId ? Number(req.query.viajeId) : undefined
+    const viajeId = req.query.viajeId as string | undefined
     const tramos = await prisma.tramo.findMany({
       where: { baja: null, ...(viajeId && { viajeId }) },
+      include: { origen: true, destino: true },
       orderBy: [{ viajeId: 'asc' }, { orden: 'asc' }],
     })
     res.json(tramos)
@@ -21,8 +22,8 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const tramo = await prisma.tramo.findUnique({
-      where: { id: Number(req.params.id) },
-      include: { viaje: true },
+      where: { id: req.params.id as string },
+      include: { viaje: true, origen: true, destino: true },
     })
     if (!tramo) return res.status(404).json({ error: 'Tramo no encontrado' })
     res.json(tramo)
@@ -34,14 +35,17 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/tramos
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { aeropuertoSalida, horarioSalida, aeropuertoLlegada, horarioLlegada, orden, viajeId } = req.body
+    const { origenId, destinoId, orden, duracionMinutos, horaSalida, horaLlegada, aerolinea, completo, viajeId } = req.body
     const tramo = await prisma.tramo.create({
       data: {
-        aeropuertoSalida,
-        horarioSalida: new Date(horarioSalida),
-        aeropuertoLlegada,
-        horarioLlegada: new Date(horarioLlegada),
+        origenId,
+        destinoId,
         orden,
+        duracionMinutos,
+        horaSalida: horaSalida ? new Date(horaSalida) : undefined,
+        horaLlegada: horaLlegada ? new Date(horaLlegada) : undefined,
+        aerolinea,
+        completo: completo ?? false,
         viajeId,
       },
     })
@@ -54,15 +58,18 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/tramos/:id
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { aeropuertoSalida, horarioSalida, aeropuertoLlegada, horarioLlegada, orden } = req.body
+    const { origenId, destinoId, orden, duracionMinutos, horaSalida, horaLlegada, aerolinea, completo } = req.body
     const tramo = await prisma.tramo.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id as string },
       data: {
-        aeropuertoSalida,
-        ...(horarioSalida && { horarioSalida: new Date(horarioSalida) }),
-        aeropuertoLlegada,
-        ...(horarioLlegada && { horarioLlegada: new Date(horarioLlegada) }),
+        origenId,
+        destinoId,
         orden,
+        duracionMinutos,
+        ...(horaSalida && { horaSalida: new Date(horaSalida) }),
+        ...(horaLlegada && { horaLlegada: new Date(horaLlegada) }),
+        aerolinea,
+        completo,
       },
     })
     res.json(tramo)
@@ -75,7 +82,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const tramo = await prisma.tramo.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id as string },
       data: { baja: new Date() },
     })
     res.json(tramo)

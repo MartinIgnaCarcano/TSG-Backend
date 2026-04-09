@@ -20,13 +20,12 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const cliente = await prisma.cliente.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id as string },
       include: {
         reservas: {
           where: { baja: null },
           include: {
-            cotizacionIda: true,
-            cotizacionVuelta: true,
+            cotizacion: true,
           },
         },
       },
@@ -41,9 +40,10 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/clientes
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { nombre, apellido, fechaNacimiento, dni, telefono, email, nacionalidad, discapacidad, pasaporte, yaViajo } = req.body
+    const { nombre, apellido, telefono, email } = req.body
+    const numeroCliente = `CLI-${Date.now()}`
     const cliente = await prisma.cliente.create({
-      data: { nombre, apellido, fechaNacimiento: new Date(fechaNacimiento), dni, telefono, email, nacionalidad, discapacidad, pasaporte, yaViajo },
+      data: { nombre, apellido, telefono, email, numeroCliente },
     })
     res.status(201).json(cliente)
   } catch (e: any) {
@@ -54,14 +54,10 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/clientes/:id
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { nombre, apellido, fechaNacimiento, dni, telefono, email, nacionalidad, discapacidad, pasaporte, yaViajo } = req.body
+    const { nombre, apellido, telefono, email } = req.body
     const cliente = await prisma.cliente.update({
-      where: { id: Number(req.params.id) },
-      data: {
-        nombre, apellido,
-        ...(fechaNacimiento && { fechaNacimiento: new Date(fechaNacimiento) }),
-        dni, telefono, email, nacionalidad, discapacidad, pasaporte, yaViajo,
-      },
+      where: { id: req.params.id as string },
+      data: { nombre, apellido, telefono, email },
     })
     res.json(cliente)
   } catch (e: any) {
@@ -73,7 +69,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const cliente = await prisma.cliente.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id as string },
       data: { baja: new Date() },
     })
     res.json(cliente)

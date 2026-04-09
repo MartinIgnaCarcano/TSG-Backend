@@ -3,13 +3,13 @@ import { prisma } from '../lib/prisma'
 
 const router = Router()
 
-// GET /api/cotizaciones?viajeId=1
+// GET /api/cotizaciones?viajeId=...
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const viajeId = req.query.viajeId ? Number(req.query.viajeId) : undefined
+    const viajeId = req.query.viajeId as string | undefined
     const cotizaciones = await prisma.cotizacion.findMany({
       where: { baja: null, ...(viajeId && { viajeId }) },
-      include: { viaje: true },
+      include: { viaje: true, cliente: true },
       orderBy: { alta: 'desc' },
     })
     res.json(cotizaciones)
@@ -22,13 +22,14 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const cotizacion = await prisma.cotizacion.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id as string },
       include: {
         viaje: {
           include: {
             tramos: { where: { baja: null }, orderBy: { orden: 'asc' } },
           },
         },
+        cliente: true,
       },
     })
     if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada' })
@@ -41,9 +42,22 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/cotizaciones
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { aerolinea, precioDolares, precioPesos, cantidadValijas, extra, extraPrecio, clase, viajeId } = req.body
+    const { viajeId, clienteId, fechaVencimiento, moneda, precioIda, precioVuelta, precioIdaYVuelta, impuestos, observaciones, ofertaExternaID } = req.body
+    const numeroCotizacion = `COT-${Date.now()}`
     const cotizacion = await prisma.cotizacion.create({
-      data: { aerolinea, precioDolares, precioPesos, cantidadValijas, extra, extraPrecio, clase, viajeId },
+      data: {
+        viajeId,
+        clienteId,
+        numeroCotizacion,
+        fechaVencimiento: new Date(fechaVencimiento),
+        moneda,
+        precioIda,
+        precioVuelta,
+        precioIdaYVuelta,
+        impuestos,
+        observaciones,
+        ofertaExternaID,
+      },
     })
     res.status(201).json(cotizacion)
   } catch (e: any) {
@@ -54,10 +68,20 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/cotizaciones/:id
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { aerolinea, precioDolares, precioPesos, cantidadValijas, extra, extraPrecio, clase } = req.body
+    const { fechaVencimiento, moneda, precioIda, precioVuelta, precioIdaYVuelta, impuestos, observaciones, estado, ofertaExternaID } = req.body
     const cotizacion = await prisma.cotizacion.update({
-      where: { id: Number(req.params.id) },
-      data: { aerolinea, precioDolares, precioPesos, cantidadValijas, extra, extraPrecio, clase },
+      where: { id: req.params.id as string },
+      data: {
+        ...(fechaVencimiento && { fechaVencimiento: new Date(fechaVencimiento) }),
+        moneda,
+        precioIda,
+        precioVuelta,
+        precioIdaYVuelta,
+        impuestos,
+        observaciones,
+        estado,
+        ofertaExternaID,
+      },
     })
     res.json(cotizacion)
   } catch (e: any) {
@@ -69,7 +93,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const cotizacion = await prisma.cotizacion.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id as string },
       data: { baja: new Date() },
     })
     res.json(cotizacion)
