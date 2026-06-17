@@ -1,0 +1,184 @@
+{
+  "name": "STG Flujo 4 — Cancelación por vencimiento (cron 23:00)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 23 * * *"
+            }
+          ]
+        }
+      },
+      "id": "4aaa0001-0000-0000-0000-000000000001",
+      "name": "Cron 23:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3001/api/reservas?vencidas=true",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "4aaa0002-0000-0000-0000-000000000002",
+      "name": "GET reservas vencidas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "id": "4aaa0003-0000-0000-0000-000000000003",
+      "name": "Una por una",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar payload para cancelar y mensaje para el cliente\nconst r = $json;\nconst cli = r.cliente || {};\nconst v = r.cotizacion?.viaje || {};\nconst ruta = (v.origen?.codigoIATA && v.destino?.codigoIATA)\n  ? `${v.origen.codigoIATA} → ${v.destino.codigoIATA}`\n  : 'tu viaje';\nconst fechaViaje = r.fechaViaje ? new Date(r.fechaViaje).toLocaleDateString('es-AR') : '';\nconst tel = (cli.telefono || '').replace(/^whatsapp:/, '');\nconst saldoPendiente = (Number(r.montoFinal) - Number(r.saldoPagado)).toFixed(2);\n\nreturn [{\n  json: {\n    reservaId: r.id,\n    numeroReserva: r.numeroReserva,\n    telefono: tel,\n    motivo: `Cancelación automática: saldo de USD ${saldoPendiente} no abonado a 7 días del viaje`,\n    mensaje: `❌ *Reserva cancelada — STG*\\n\\nHola ${cli.nombre}, tu reserva ${r.numeroReserva} (${ruta} - ${fechaViaje}) fue cancelada automáticamente porque el saldo de *USD ${saldoPendiente}* no fue abonado a 7 días del viaje.\\n\\nSi querés reactivarla, escribinos por este chat lo antes posible. Disculpas las molestias. 🙏`\n  }\n}];"
+      },
+      "id": "4aaa0004-0000-0000-0000-000000000004",
+      "name": "Preparar payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://localhost:3001/api/reservas/{{ $json.reservaId }}/cancelar",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"motivo\": \"{{ $json.motivo }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "4aaa0005-0000-0000-0000-000000000005",
+      "name": "PATCH cancelar reserva",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "+14155238886",
+        "to": "={{ $('Preparar payload').item.json.telefono }}",
+        "toWhatsapp": true,
+        "message": "={{ $('Preparar payload').item.json.mensaje }}",
+        "options": {}
+      },
+      "id": "4aaa0006-0000-0000-0000-000000000006",
+      "name": "Avisar al cliente",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        480,
+        400
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "REEMPLAZAR_CON_TU_CREDENCIAL_TWILIO",
+          "name": "Twilio"
+        }
+      },
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Cron 23:00": {
+      "main": [
+        [
+          {
+            "node": "GET reservas vencidas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET reservas vencidas": {
+      "main": [
+        [
+          {
+            "node": "Una por una",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Una por una": {
+      "main": [
+        [
+          {
+            "node": "Preparar payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar payload": {
+      "main": [
+        [
+          {
+            "node": "PATCH cancelar reserva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PATCH cancelar reserva": {
+      "main": [
+        [
+          {
+            "node": "Avisar al cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "stg"
+    },
+    {
+      "name": "cancelacion"
+    }
+  ],
+  "active": false
+}

@@ -1,0 +1,679 @@
+{
+  "name": "STG Bot WhatsApp v2 (Twilio + Groq + 3 fechas + email)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stg-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6cae15f1-62f6-483f-8d37-f520a179f63e",
+      "name": "Webhook Twilio",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        3824,
+        3584
+      ],
+      "webhookId": "stg-whatsapp"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst from = body.From || body.from || '';\nconst text = (body.Body || body.body || '').trim();\nif (!from || !text) return [{ json: { skip: true, from: '', text: '' } }];\nreturn [{ json: { from, text, skip: false } }];"
+      },
+      "id": "81d466e3-55ef-4778-9495-9b4805ab3e96",
+      "name": "Parsear Webhook",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4064,
+        3584
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Detectamos si el mensaje es una SELECCIÓN o un mensaje nuevo\n// Formato esperado: \"NUMERO | Nombre Apellido | email@algo.com\" (también acepta más cortos)\nconst text = $json.text;\nconst from = $json.from;\n\nlet nombre = 'WhatsApp';\nlet apellido = 'User';\nlet email = null;\nlet numero = null;\n\n// 1) Formato completo: \"1 | Juan Perez | juan@mail.com\"\nlet m = text.match(/^\\s*(\\d+)\\s*\\|\\s*(.+?)\\s*\\|\\s*(\\S+@[^\\s]+\\.\\S+)\\s*$/i);\nif (m) {\n  numero = m[1];\n  const nombreCompleto = m[2].trim();\n  const partes = nombreCompleto.split(/\\s+/);\n  if (partes.length >= 2) { apellido = partes.pop(); nombre = partes.join(' '); }\n  else { nombre = nombreCompleto; }\n  email = m[3].trim().toLowerCase();\n}\n\n// 2) Formato corto: \"1 | juan@mail.com\"\nif (!m) {\n  m = text.match(/^\\s*(\\d+)\\s*\\|\\s*(\\S+@[^\\s]+\\.\\S+)\\s*$/i);\n  if (m) { numero = m[1]; email = m[2].trim().toLowerCase(); }\n}\n\n// 3) Sin pipe: \"1 juan@mail.com\"\nif (!m) {\n  m = text.match(/^\\s*(\\d+)\\s+(\\S+@[^\\s]+\\.\\S+)\\s*$/i);\n  if (m) { numero = m[1]; email = m[2].trim().toLowerCase(); }\n}\n\nif (numero && email) {\n  const memory = $getWorkflowStaticData('global');\n  const sesion = memory[from];\n  if (!sesion || !sesion.comparativa) {\n    return [{ json: { from, esSeleccion: true, error: 'No tengo una búsqueda activa tuya. Mandá un nuevo destino.' } }];\n  }\n  const idx = parseInt(numero, 10) - 1;\n  if (idx < 0 || idx >= sesion.comparativa.length) {\n    return [{ json: { from, esSeleccion: true, error: `Número inválido. Elegí entre 1 y ${sesion.comparativa.length}.` } }];\n  }\n  return [{ json: {\n    from, esSeleccion: true, error: null,\n    email, nombre, apellido,\n    opcionIdx: idx,\n    opcion: sesion.comparativa[idx],\n    origenNombre: sesion.origenNombre,\n    destinoNombre: sesion.destinoNombre,\n    origenIATA: sesion.origenIATA,\n    destinoIATA: sesion.destinoIATA\n  } }];\n}\n\n// No es selección, es un mensaje normal para el AI Agent\nreturn [{ json: { from, text, esSeleccion: false, error: null } }];"
+      },
+      "id": "e25fef30-2145-49e7-9ffa-ef9514803414",
+      "name": "¿Es selección o consulta?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4304,
+        3584
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.esSeleccion }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "06d31e45-c3d8-4675-b7c9-7d1d77586663",
+      "name": "Switch selección/consulta",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4544,
+        3584
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "140b7fc2-da3b-487a-854e-d2902c6fbcae",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        4864,
+        3904
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "CgeyCZd3Gst0qCeY",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Parsear Webhook').item.json.from }}",
+        "contextWindowLength": 8
+      },
+      "id": "61fb245d-83b4-4dae-b820-608717921c34",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        5024,
+        3904
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Parsear Webhook').item.json.text }}",
+        "options": {
+          "systemMessage": "=Sos el asistente virtual de ventas de Smart Booking STG. Sos amable, conversador, tenés un tono cálido y simpático (podés usar modismos argentinos sutiles). Tu objetivo es recopilar 4 datos obligatorios: Origen, Destino, Fecha de ida y Fecha de vuelta. Hoy es {{ DateTime.now().toFormat('yyyy-MM-dd') }}.\n\nLÓGICA DE COMPORTAMIENTO (¡ESTRICTA!):\nEvaluá siempre el último mensaje del usuario junto con la memoria de la conversación y actuá según uno de estos dos escenarios:\n\nESCENARIO 1: FALTAN DATOS\nSi el usuario NO ha proporcionado los 4 datos completos, RESPONDÉ COMO UN HUMANO. Charla con él, confirmá qué datos ya tenés (para que sepa que lo estás leyendo) y preguntale amablemente ÚNICAMENTE por los datos que faltan. NO uses formato JSON en este escenario, solo texto normal.\n\nESCENARIO 2: TENÉS LOS 4 DATOS\nSi en el mensaje actual (o sumando la memoria) ya tenés Origen, Destino, Ida y Vuelta confirmados, CAMBIÁ A MODO MÁQUINA. NO saludes, NO hables, NO agregues texto extra. Tu ÚNICA salida debe ser un objeto JSON crudo con la siguiente estructura exacta, calculando los códigos IATA correctos:\n\n{\n\"origenNombre\": \"Ciudad de origen\",\n\"destinoNombre\": \"Ciudad de destino\",\n\"origenIATA\": \"Código IATA (ej. MDZ)\",\n\"destinoIATA\": \"Código IATA (ej. MAD)\",\n\"fechaIda\": \"YYYY-MM-DD\",\n\"fechaVuelta\": \"YYYY-MM-DD\"\n}\n\nCódigos IATA que conocés: Mendoza=MDZ, Buenos Aires Ezeiza=EZE, Aeroparque=AEP, Córdoba=COR, Bariloche=BRC, Puerto Iguazú=IGR, Miami=MIA, Nueva York=JFK, Los Ángeles=LAX, Cancún=CUN, Madrid=MAD, Barcelona=BCN, París=CDG, Roma=FCO, Londres=LHR, São Paulo=GRU, Río de Janeiro=GIG, Santiago=SCL, Lima=LIM, Punta Cana=PUJ.\n\nIMPORTANTE: Las fechas relativas (como 'en julio', 'el mes que viene', 'la semana que viene') convertilas a formato YYYY-MM-DD usando la fecha de hoy."
+        }
+      },
+      "id": "45c9d4ba-6178-4c1f-a82f-cbbf4e9e48a7",
+      "name": "AI Agent Vendedor",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4864,
+        3696
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = ($input.first().json.output || $input.first().json.text || '').trim();\nconst from = $('Parsear Webhook').first().json.from;\n\nconst match = raw.match(/\\{[\\s\\S]*\\}/);\nif (match) {\n  try {\n    const j = JSON.parse(match[0]);\n    if (j.origenIATA && j.destinoIATA && j.fechaIda && j.fechaVuelta\n        && /^\\d{4}-\\d{2}-\\d{2}$/.test(j.fechaIda)\n        && /^\\d{4}-\\d{2}-\\d{2}$/.test(j.fechaVuelta)\n        && new Date(j.fechaVuelta) > new Date(j.fechaIda)) {\n      return [{ json: {\n        from, datosCompletos: true,\n        origenNombre: j.origenNombre || j.origenIATA,\n        destinoNombre: j.destinoNombre || j.destinoIATA,\n        origenIATA: j.origenIATA.toUpperCase(),\n        destinoIATA: j.destinoIATA.toUpperCase(),\n        fechaIda: j.fechaIda, fechaVuelta: j.fechaVuelta,\n        noches: Math.round((new Date(j.fechaVuelta) - new Date(j.fechaIda)) / 86400000),\n        respuestaTexto: `⏳ *Buscando vuelos…*\\n✈️ ${j.origenNombre || j.origenIATA} → ${j.destinoNombre || j.destinoIATA}\\n📅 ${j.fechaIda} → ${j.fechaVuelta}\\nComparando 3 fechas, tarda ~10 segundos 🔍`\n      } }];\n    }\n  } catch(e) {}\n}\nreturn [{ json: { from, datosCompletos: false, respuestaTexto: raw } }];"
+      },
+      "id": "698a5835-46c7-4541-9123-6ab8d0400773",
+      "name": "Parsear Respuesta LLM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5152,
+        3696
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.datosCompletos }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6794043c-1410-457f-9aa5-3a46e8274983",
+      "name": "¿Datos completos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5392,
+        3696
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\n\nif (!d.fechaIda || !d.fechaVuelta) return [];\n\nfunction sumarDias(fecha, dias) {\n  const f = new Date(fecha + 'T12:00:00Z');\n  f.setDate(f.getDate() + dias);\n  return f.toISOString().split('T')[0];\n}\n\n// No permitir fechas pasadas o de hoy\nconst hoy = new Date();\nhoy.setUTCHours(0, 0, 0, 0);\nconst manana = new Date(hoy);\nmanana.setDate(manana.getDate() + 1);\n\nconst offsets = [-3, 0, 3];\nreturn offsets.map(off => {\n  const ida = sumarDias(d.fechaIda, off);\n  const vuelta = sumarDias(d.fechaVuelta, off);\n  const noches = Math.round((new Date(vuelta) - new Date(ida)) / 86400000);\n\n  if (new Date(ida + 'T12:00:00Z') < manana) return null;\n  if (noches <= 0) return null;\n\n  return { json: {\n    esOriginal: off === 0,\n    etiqueta: off === 0 ? '📅 Tus fechas' : off === -1 ? '💡 -1 día' : '💡 +1 día',\n    from: d.from, origenIATA: d.origenIATA, destinoIATA: d.destinoIATA,\n    origenNombre: d.origenNombre, destinoNombre: d.destinoNombre,\n    fechaIda: ida, fechaVuelta: vuelta, noches\n  }};\n}).filter(x => x !== null);"
+      },
+      "id": "337758d2-90f4-486b-8bd8-fda007da4b31",
+      "name": "Generar 3 Fechas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5664,
+        3584
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://google-flights2.p.rapidapi.com/api/v1/searchFlights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "departure_id",
+              "value": "={{ $json.origenIATA }}"
+            },
+            {
+              "name": "arrival_id",
+              "value": "={{ $json.destinoIATA }}"
+            },
+            {
+              "name": "outbound_date",
+              "value": "={{ $json.fechaIda }}"
+            },
+            {
+              "name": "return_date",
+              "value": "={{ $json.fechaVuelta }}"
+            },
+            {
+              "name": "currency",
+              "value": "USD"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-key",
+              "value": "18d9f2c737msh5e2a30eb580bcc7p193f75jsnce101194bf06"
+            },
+            {
+              "name": "x-rapidapi-host",
+              "value": "google-flights2.p.rapidapi.com"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1500
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "46182611-a597-426d-9cdc-71d47d8b4275",
+      "name": "Google Flights",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5952,
+        3584
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "vuelos",
+        "options": {}
+      },
+      "id": "dd52ac76-5e3b-4bb9-981c-9e1cd533d206",
+      "name": "Aggregate",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        6192,
+        3584
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const vuelos = $json.vuelos || [];\nconst variantes = $('Generar 3 Fechas').all();\nconst from = variantes[0]?.json.from;\nconst origenNombre = variantes[0]?.json.origenNombre;\nconst destinoNombre = variantes[0]?.json.destinoNombre;\nconst origenIATA = variantes[0]?.json.origenIATA;\nconst destinoIATA = variantes[0]?.json.destinoIATA;\n\nfunction escalasTexto(flight) {\n  const cant = Array.isArray(flight.flights) ? flight.flights.length - 1 : 0;\n  if (cant === 0) return 'Directo ✅';\n  const base = cant === 1 ? '1 escala' : `${cant} escalas`;\n  if (Array.isArray(flight.layovers) && flight.layovers.length > 0) {\n    return base + ': ' + flight.layovers.map(l => l.airport_code).join(' → ');\n  }\n  return base;\n}\n\nfunction formatHora(timeStr) {\n  if (!timeStr) return '';\n  const parts = timeStr.split(' ');\n  return parts.length >= 2 ? parts[1] + (parts[2] ? ' ' + parts[2] : '') : timeStr;\n}\n\n// Separar variante original de las alternativas\nconst varOriginal = variantes.find(x => x.json.esOriginal)?.json;\nconst varsAlter = variantes.filter(x => !x.json.esOriginal).map(x => x.json);\n\nfunction getTop(variante) {\n  if (!variante) return null;\n  const res = vuelos.find(r => {\n    const fechaRes = r.outbound_date || r.fechaIda;\n    return fechaRes === variante.fechaIda;\n  }) || vuelos[variantes.findIndex(x => x.json.fechaIda === variante.fechaIda)];\n  return res?.data?.itineraries?.topFlights || null;\n}\n\nlet comp = [];\n\n// 1) Hasta 3 opciones en la fecha pedida por el cliente\nconst topOriginal = getTop(varOriginal);\nif (Array.isArray(topOriginal)) {\n  topOriginal.slice(0, 3).forEach(f => {\n    if (!f.price) return;\n    comp.push({\n      tipo: 'principal',\n      etiqueta: '📅 Tus fechas',\n      fechaIda: varOriginal.fechaIda,\n      fechaVuelta: varOriginal.fechaVuelta,\n      noches: varOriginal.noches,\n      precio: f.price,\n      aerolinea: f.flights?.[0]?.airline || 'Aerolínea',\n      escalas: escalasTexto(f),\n      horaSalida: formatHora(f.departure_time),\n      horaLlegada: formatHora(f.arrival_time),\n      duracion: f.duration?.text || ''\n    });\n  });\n}\n\n// 2) Precio mínimo de la fecha original\nconst minPrincipal = comp.length ? Math.min(...comp.map(o => o.precio)) : Infinity;\n\n// 3) Fechas alternativas solo si hay ahorro ≥10%\nvarsAlter.forEach(v => {\n  const top = getTop(v);\n  if (!Array.isArray(top) || !top.length || !top[0].price) return;\n  const f = top[0];\n  const ahorroPct = (minPrincipal - f.price) / minPrincipal;\n  if (ahorroPct >= 0.10) {\n    comp.push({\n      tipo: 'ahorro',\n      etiqueta: `💡 Ahorrás ${Math.round(ahorroPct * 100)}% — ${v.etiqueta}`,\n      fechaIda: v.fechaIda,\n      fechaVuelta: v.fechaVuelta,\n      noches: v.noches,\n      precio: f.price,\n      aerolinea: f.flights?.[0]?.airline || 'Aerolínea',\n      escalas: escalasTexto(f),\n      horaSalida: formatHora(f.departure_time),\n      horaLlegada: formatHora(f.arrival_time),\n      duracion: f.duration?.text || ''\n    });\n  }\n});\n\n// 4) Fallback: si no hubo resultados en fecha original, usar lo que haya\nif (!comp.length) {\n  vuelos.forEach((res, i) => {\n    const top = res?.data?.itineraries?.topFlights;\n    if (!Array.isArray(top) || !top.length || !top[0].price) return;\n    const v = variantes[i]?.json;\n    if (!v) return;\n    const f = top[0];\n    comp.push({\n      tipo: 'principal',\n      etiqueta: v.etiqueta,\n      fechaIda: v.fechaIda,\n      fechaVuelta: v.fechaVuelta,\n      noches: v.noches,\n      precio: f.price,\n      aerolinea: f.flights?.[0]?.airline || 'Aerolínea',\n      escalas: escalasTexto(f),\n      horaSalida: formatHora(f.departure_time),\n      horaLlegada: formatHora(f.arrival_time),\n      duracion: f.duration?.text || ''\n    });\n  });\n}\n\nif (!comp.length) {\n  return [{ json: { from, mensaje: `😕 No encontré vuelos ${origenIATA}→${destinoIATA}. Probá otras fechas.`, hayOferta: false } }];\n}\n\n// Marcar el más barato\nconst minTotal = Math.min(...comp.map(o => o.precio));\ncomp.forEach(o => o.esMasBarata = o.precio === minTotal);\n\n// Guardar en memoria\nconst memory = $getWorkflowStaticData('global');\nmemory[from] = { comparativa: comp, origenNombre, destinoNombre, origenIATA, destinoIATA, ts: Date.now() };\n\n// Armar mensaje\nlet m = `🔍 *COMPARATIVA DE VUELOS — STG*\\n✈️ *${origenNombre} → ${destinoNombre}*\\n━━━━━━━━━━━━━━━━━━━━\\n\\n`;\ncomp.forEach((o, i) => {\n  const star = o.esMasBarata ? ' 🏆 *MEJOR PRECIO*' : '';\n  m += `*${i+1}. ${o.etiqueta}*${star}\\n💰 *USD ${o.precio}* | ${o.escalas}\\n🏢 ${o.aerolinea}\\n📅 ${o.fechaIda} → ${o.fechaVuelta} (${o.noches}n)\\n🕐 ${o.horaSalida} → ${o.horaLlegada} (${o.duracion})\\n────────────────────\\n`;\n});\nm += `\\n📝 *Para reservar, respondé con:*\\n\\`NUMERO | Nombre Apellido | tu@email.com\\`\\n\\n_Ejemplo:_ \\`1 | Juan Perez | juan@mail.com\\``;\n\nreturn [{ json: { from, mensaje: m, hayOferta: true } }];"
+      },
+      "id": "8f39ae2f-31da-4008-a08e-0bd57ba07da8",
+      "name": "Smart Optimizer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6432,
+        3584
+      ]
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{ $json.from.replace('whatsapp:', '') }}",
+        "toWhatsapp": true,
+        "message": "={{ $json.mensaje }}",
+        "options": {}
+      },
+      "id": "26672139-9752-47de-bdd4-10133a07d932",
+      "name": "Twilio - Enviar resultado",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        6704,
+        3584
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "V7Lw9OqUQODGDdsI",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{ $json.from.replace('whatsapp:', '') }}",
+        "toWhatsapp": true,
+        "message": "={{ $json.respuestaTexto }}",
+        "options": {}
+      },
+      "id": "c07aa615-9fba-4915-b062-1b0f6314a5a8",
+      "name": "Twilio - Pedir datos",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        5664,
+        3824
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "V7Lw9OqUQODGDdsI",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "bd658619-bd34-4b73-93a6-9a73bcf383f0",
+      "name": "TwiML vacío",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4304,
+        3376
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\n\nif (d.error) return [{ json: { from: d.from, msgFinal: '❌ ' + d.error, ok: false } }];\n\nconst opt = d.opcion;\nconst BASE = 'http://localhost:3000/api';\n\nasync function httpRequest(method, path, body) {\n  return await this.helpers.httpRequest({\n    method,\n    url: BASE + path,\n    body,\n    json: true,\n  });\n}\n\ntry {\n  // 1) Buscar o crear cliente\n  const clientes = await httpRequest.call(this, 'GET', '/clientes');\n  let cliente = (Array.isArray(clientes) ? clientes : []).find(c => c.email === d.email);\n  if (!cliente) {\n    cliente = await httpRequest.call(this, 'POST', '/clientes', {\n      nombre: d.nombre || 'WhatsApp',\n      apellido: d.apellido || 'User',\n      email: d.email,\n      telefono: d.from.replace('whatsapp:', '')\n    });\n  }\n\n  // 2) Buscar destinos por IATA\n  const [origs, dests] = await Promise.all([\n    httpRequest.call(this, 'GET', '/destinos?iata=' + d.origenIATA),\n    httpRequest.call(this, 'GET', '/destinos?iata=' + d.destinoIATA)\n  ]);\n  const origenId = origs[0]?.id;\n  const destinoId = dests[0]?.id;\n  if (!origenId || !destinoId) throw new Error('Destino no encontrado en la DB');\n\n  // 3) Crear viaje\n  const viaje = await httpRequest.call(this, 'POST', '/viajes', {\n    origenId, destinoId,\n    tieneEscalas: !/Directo/.test(opt.escalas),\n    descripcion: `${d.origenIATA} → ${d.destinoIATA} (${opt.aerolinea})`,\n    tramos: [\n      { origenId, destinoId, orden: 1, aerolinea: opt.aerolinea, horaSalida: opt.fechaIda + 'T08:00:00Z', horaLlegada: opt.fechaIda + 'T20:00:00Z', completo: false },\n      { origenId: destinoId, destinoId: origenId, orden: 2, aerolinea: opt.aerolinea, horaSalida: opt.fechaVuelta + 'T08:00:00Z', horaLlegada: opt.fechaVuelta + 'T20:00:00Z', completo: false }\n    ]\n  });\n\n  // 4) Crear cotización\n  const cot = await httpRequest.call(this, 'POST', '/cotizaciones', {\n    viajeId: viaje.id, clienteId: cliente.id,\n    fechaVencimiento: new Date(Date.now() + 7 * 86400000).toISOString(),\n    moneda: 'USD',\n    precioIda: Math.round(opt.precio * 0.5),\n    precioVuelta: Math.round(opt.precio * 0.5),\n    precioIdaYVuelta: opt.precio,\n    impuestos: Math.round(opt.precio * 0.21),\n    observaciones: `Bot WhatsApp — ${opt.aerolinea} — ${opt.escalas}`\n  });\n\n  const msgFinal = `✅ *¡Cotización lista!*\\n\\n📋 Número: \\`${cot.numeroCotizacion}\\`\\n✈️ ${d.origenNombre} → ${d.destinoNombre}\\n📅 ${opt.fechaIda} → ${opt.fechaVuelta}\\n🏢 ${opt.aerolinea}\\n💰 USD ${opt.precio} + imp. USD ${Math.round(opt.precio * 0.21)} = *USD ${Math.round(opt.precio * 1.21)}*\\n\\nTe mandamos los detalles a *${d.email}* 📧\\nUn asesor te contacta en breve para confirmar. 👋\\n\\n_Para otra consulta, mandá \"hola\"._`;\n\n  return [{ json: {\n    from: d.from, ok: true, msgFinal,\n    email: d.email,\n    numeroCotizacion: cot.numeroCotizacion,\n    origenNombre: d.origenNombre, destinoNombre: d.destinoNombre,\n    origenIATA: d.origenIATA, destinoIATA: d.destinoIATA,\n    fechaIda: opt.fechaIda, fechaVuelta: opt.fechaVuelta,\n    aerolinea: opt.aerolinea, escalas: opt.escalas,\n    precio: opt.precio, impuestos: Math.round(opt.precio * 0.21),\n    total: Math.round(opt.precio * 1.21)\n  } }];\n\n} catch(e) {\n  return [{ json: { from: d.from, ok: false, msgFinal: '⚠️ Error creando cotización: ' + e.message } }];\n}"
+      },
+      "id": "f578f899-56ff-4d6a-8a1e-a92954961d2e",
+      "name": "Crear cotización en Back",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4832,
+        3376
+      ]
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{ $json.from.replace('whatsapp:', '') }}",
+        "toWhatsapp": true,
+        "message": "={{ $json.msgFinal }}",
+        "options": {}
+      },
+      "id": "72bf58d2-0f85-412e-90d1-b024209c2aea",
+      "name": "Twilio - Confirmar reserva",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        5104,
+        3376
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "V7Lw9OqUQODGDdsI",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4152073b-740d-48f0-b16f-24a0826dcbce",
+      "name": "¿Cotización OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5344,
+        3376
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "stg.viajes@gmail.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Tu cotización STG — {{ $json.numeroCotizacion }} — {{ $json.origenIATA }} → {{ $json.destinoIATA }}",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#1a1a2e;color:#eee;padding:30px;border-radius:12px;\">\n  <div style=\"text-align:center;margin-bottom:20px;\">\n    <h1 style=\"color:#c8e44a;margin:0;\">✈️ Smart Booking STG</h1>\n    <p style=\"color:#9ca3af;\">Cotización de vuelos</p>\n  </div>\n  <div style=\"background:#16213e;padding:20px;border-radius:8px;margin-bottom:20px;\">\n    <h2 style=\"color:#c8e44a;margin-top:0;\">{{ $json.numeroCotizacion }}</h2>\n    <table style=\"width:100%;color:#eee;font-size:14px;\">\n      <tr><td style=\"padding:6px 0;color:#9ca3af;\">Ruta:</td><td><strong>{{ $json.origenNombre }} ({{ $json.origenIATA }}) → {{ $json.destinoNombre }} ({{ $json.destinoIATA }})</strong></td></tr>\n      <tr><td style=\"padding:6px 0;color:#9ca3af;\">Fechas:</td><td>{{ $json.fechaIda }} → {{ $json.fechaVuelta }}</td></tr>\n      <tr><td style=\"padding:6px 0;color:#9ca3af;\">Aerolínea:</td><td>{{ $json.aerolinea }}</td></tr>\n      <tr><td style=\"padding:6px 0;color:#9ca3af;\">Escalas:</td><td>{{ $json.escalas }}</td></tr>\n      <tr><td style=\"padding:6px 0;color:#9ca3af;\">Precio vuelo:</td><td>USD {{ $json.precio }}</td></tr>\n      <tr><td style=\"padding:6px 0;color:#9ca3af;\">Impuestos (21%):</td><td>USD {{ $json.impuestos }}</td></tr>\n      <tr><td style=\"padding:6px 0;color:#c8e44a;font-weight:bold;\">TOTAL:</td><td style=\"color:#c8e44a;font-weight:bold;font-size:18px;\">USD {{ $json.total }}</td></tr>\n    </table>\n  </div>\n  <div style=\"background:#16213e;padding:15px;border-radius:8px;margin-bottom:20px;\">\n    <p style=\"margin:0;color:#9ca3af;\">📌 Esta cotización es válida por <strong>7 días</strong>.</p>\n    <p style=\"margin:8px 0 0;color:#9ca3af;\">Un asesor de STG te va a contactar para confirmar la reserva y coordinar el pago.</p>\n  </div>\n  <div style=\"text-align:center;color:#6b7280;font-size:12px;\">\n    <p>Smart Booking STG — Sistema de Gestión de Viajes</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "ea9531e7-c58e-4bf3-9899-5387b3a6cad3",
+      "name": "Enviar email con cotización",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        5584,
+        3296
+      ],
+      "webhookId": "d0e876af-bb21-459c-b8d2-2700ef023bd2",
+      "credentials": {
+        "smtp": {
+          "id": "ewO4VT2D9J2PBYhD",
+          "name": "SMTP account"
+        }
+      },
+      "continueOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Twilio": {
+      "main": [
+        [
+          {
+            "node": "Parsear Webhook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TwiML vacío",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear Webhook": {
+      "main": [
+        [
+          {
+            "node": "¿Es selección o consulta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es selección o consulta?": {
+      "main": [
+        [
+          {
+            "node": "Switch selección/consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch selección/consulta": {
+      "main": [
+        [
+          {
+            "node": "Crear cotización en Back",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent Vendedor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Vendedor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent Vendedor",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Vendedor": {
+      "main": [
+        [
+          {
+            "node": "Parsear Respuesta LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear Respuesta LLM": {
+      "main": [
+        [
+          {
+            "node": "¿Datos completos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos completos?": {
+      "main": [
+        [
+          {
+            "node": "Generar 3 Fechas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Twilio - Pedir datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar 3 Fechas": {
+      "main": [
+        [
+          {
+            "node": "Google Flights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Flights": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Smart Optimizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart Optimizer": {
+      "main": [
+        [
+          {
+            "node": "Twilio - Enviar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear cotización en Back": {
+      "main": [
+        [
+          {
+            "node": "Twilio - Confirmar reserva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twilio - Confirmar reserva": {
+      "main": [
+        [
+          {
+            "node": "¿Cotización OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Cotización OK?": {
+      "main": [
+        [
+          {
+            "node": "Enviar email con cotización",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2de51149-def0-4eb6-bde9-f064198d93a3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "97f98073017a7ea71d2f87bf53c3ea533131b34354585aa5ce0097edc26d2939"
+  },
+  "id": "fOpjL6BbfDW6oZm7",
+  "tags": [
+    {
+      "updatedAt": "2026-05-27T22:29:23.557Z",
+      "createdAt": "2026-05-27T22:29:23.557Z",
+      "id": "3IsX1f9qVetTAu5c",
+      "name": "v2"
+    },
+    {
+      "updatedAt": "2026-05-27T12:49:31.791Z",
+      "createdAt": "2026-05-27T12:49:31.791Z",
+      "id": "5WPXNfQME4jKwgjt",
+      "name": "whatsapp"
+    },
+    {
+      "updatedAt": "2026-05-27T12:49:31.786Z",
+      "createdAt": "2026-05-27T12:49:31.786Z",
+      "id": "6gwDthWHTiNuoD2c",
+      "name": "twilio"
+    },
+    {
+      "updatedAt": "2026-05-27T12:49:31.775Z",
+      "createdAt": "2026-05-27T12:49:31.775Z",
+      "id": "d4OIiHWt0F1BynWx",
+      "name": "stg"
+    }
+  ]
+}
