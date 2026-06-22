@@ -1,7 +1,30 @@
 # API de Gestión de Viajes
 
-**Base URL:** `http://localhost:3000`  
+**Base URL:** `http://localhost:3001`  
 Todos los endpoints devuelven y reciben `Content-Type: application/json`.
+
+---
+
+## Arquitectura del bot de WhatsApp
+
+El bot de WhatsApp **no corre dentro de este backend**. La orquestación
+(recibir el mensaje, llamar al LLM, armar la comparativa de vuelos,
+responder por WhatsApp) la hace **n8n** como workflow externo, con sus
+propias credenciales de Twilio y Groq configuradas directo en n8n
+(ver `SETUP_DEMO.md` en la raíz del proyecto).
+
+Este backend solo expone los endpoints REST que esos workflows
+consumen — por ejemplo `/api/calculadora/buscar`, `/api/reservas`,
+`/api/parametros`, `/api/recordatorios`. No tiene ningún router de bot
+montado en `src/index.ts`.
+
+> Históricamente hubo una implementación del bot dentro de este repo
+> (`src/bot/`, usando `groq-sdk` y `twilio` como dependencias directas).
+> Se eliminó una vez migrada la orquestación a n8n, para no mantener
+> dos implementaciones del mismo flujo. Si en algún momento n8n no
+> estuviera disponible, esa versión vieja puede recuperarse del
+> historial de git (commit previo a este cambio en la rama
+> `feature/fase0-quickwins`).
 
 ---
 
