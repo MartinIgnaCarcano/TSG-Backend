@@ -1,6 +1,20 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
-import { EstadoReserva, TipoRecordatorio } from '@prisma/client'
+import { EstadoReserva } from '@prisma/client'
+import { validateBody } from '../middleware/validate'
+import {
+  crearReservaSchema,
+  actualizarReservaSchema,
+  registrarPagoSchema,
+  cancelarReservaSchema,
+} from '../schemas/reserva.schema'
+import {
+  conSaldoPendiente,
+  inferirFechasViaje,
+  construirRecordatorios,
+  cerrarRecordatoriosSiCorresponde,
+} from '../services/reservas.service'
+import { parsePaginacion, paginarArray } from '../lib/pagination'
 
 const router = Router()
 
@@ -8,6 +22,7 @@ const router = Router()
 //   ?clienteId=...
 //   ?estado=EN_PROCESO
 //   ?vencidas=true   → reservas con saldoPendiente>0 y fechaViaje <= now+7d (usadas por el Flujo 4)
+//   ?page&?pageSize  → opcional; sin esto, devuelve array plano (compat n8n/front)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const clienteId = req.query.clienteId as string | undefined
@@ -49,13 +64,12 @@ router.get('/', async (req: Request, res: Response) => {
       })
     }
 
-    // Agregamos saldoPendiente calculado en la respuesta
-    const conSaldo = reservas.map((r) => ({
-      ...r,
-      saldoPendiente: Number(r.montoFinal) - Number(r.saldoPagado),
-    }))
+    const conSaldo = reservas.map(conSaldoPendiente)
 
-    res.json(conSaldo)
+    const paginacion = parsePaginacion(req.query as Record<string, unknown>)
+    if (!paginacion) return res.json(conSaldo)
+
+    res.json(paginarArray(conSaldo, paginacion))
   } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
@@ -82,17 +96,14 @@ router.get('/:id', async (req: Request, res: Response) => {
       },
     })
     if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' })
-    res.json({
-      ...reserva,
-      saldoPendiente: Number(reserva.montoFinal) - Number(reserva.saldoPagado),
-    })
+    res.json(conSaldoPendiente(reserva))
   } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
 })
 
 // POST /api/reservas — crea la reserva Y los recordatorios automáticamente
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', validateBody(crearReservaSchema), async (req: Request, res: Response) => {
   try {
     const {
       clienteId,
@@ -101,27 +112,12 @@ router.post('/', async (req: Request, res: Response) => {
       montoFinal,
       saldoPagado,
       observaciones,
-      fechaViaje,    // opcional: si no viene, intentamos sacarla del primer tramo
+      fechaViaje,    // opcional: si no viene, se infiere del primer/último tramo
       fechaRegreso,
     } = req.body
     const numeroReserva = `RES-${Date.now()}`
 
-    // Si no nos pasaron fechaViaje, la inferimos del viaje
-    let fViaje = fechaViaje ? new Date(fechaViaje) : undefined
-    let fRegreso = fechaRegreso ? new Date(fechaRegreso) : undefined
-    if (!fViaje || !fRegreso) {
-      const cot = await prisma.cotizacion.findUnique({
-        where: { id: cotizacionId },
-        include: {
-          viaje: { include: { tramos: { orderBy: { orden: 'asc' } } } },
-        },
-      })
-      const tramos = cot?.viaje?.tramos || []
-      if (tramos.length > 0 && tramos[0].horaSalida) fViaje = fViaje ?? tramos[0].horaSalida
-      if (tramos.length > 0 && tramos[tramos.length - 1].horaLlegada) {
-        fRegreso = fRegreso ?? tramos[tramos.length - 1].horaLlegada ?? undefined
-      }
-    }
+    const { fViaje, fRegreso } = await inferirFechasViaje(cotizacionId, fechaViaje, fechaRegreso)
 
     const reserva = await prisma.reserva.create({
       data: {
@@ -138,73 +134,35 @@ router.post('/', async (req: Request, res: Response) => {
       include: { cliente: true, cotizacion: true },
     })
 
-    // Generar recordatorios automáticamente si tenemos fechaViaje
-    if (fViaje) {
-      const recordatorios = []
-      const dias = (d: Date, n: number) => new Date(d.getTime() + n * 86400000)
-
-      // PAGO_SALDO: 14 días antes (si hay saldo pendiente)
-      const pendiente = Number(montoFinal) - Number(saldoPagado ?? 0)
-      if (pendiente > 0) {
-        recordatorios.push({
-          reservaId: reserva.id,
-          tipo: TipoRecordatorio.PAGO_SALDO,
-          fechaProgramada: dias(fViaje, -14),
-        })
-      }
-
-      // CHECK_IN: 1 día antes
-      recordatorios.push({
-        reservaId: reserva.id,
-        tipo: TipoRecordatorio.CHECK_IN,
-        fechaProgramada: dias(fViaje, -1),
-      })
-
-      // POST_VIAJE: 1 día después del regreso
-      if (fRegreso) {
-        recordatorios.push({
-          reservaId: reserva.id,
-          tipo: TipoRecordatorio.POST_VIAJE,
-          fechaProgramada: dias(fRegreso, 1),
-        })
-      }
-
-      if (recordatorios.length > 0) {
-        await prisma.recordatorio.createMany({ data: recordatorios })
-      }
+    const recordatorios = construirRecordatorios(reserva.id, montoFinal, saldoPagado ?? 0, fViaje, fRegreso)
+    if (recordatorios.length > 0) {
+      await prisma.recordatorio.createMany({ data: recordatorios })
     }
 
-    res.status(201).json({
-      ...reserva,
-      saldoPendiente: Number(reserva.montoFinal) - Number(reserva.saldoPagado),
-    })
+    res.status(201).json(conSaldoPendiente(reserva))
   } catch (e: any) {
     res.status(400).json({ error: e.message })
   }
 })
 
 // PUT /api/reservas/:id
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', validateBody(actualizarReservaSchema), async (req: Request, res: Response) => {
   try {
     const { cotizacionId, tipoReserva, montoFinal, saldoPagado, estado, observaciones, motivoCancelacion } = req.body
-    const reserva = await prisma.reserva.update({
-      where: { id: req.params.id as string },
-      data: { cotizacionId, tipoReserva, montoFinal, saldoPagado, estado, observaciones, motivoCancelacion },
-    })
-    // Si el saldo cubre el total, cerrar recordatorios de PAGO_SALDO
-    const mFinal = Number(reserva.montoFinal)
-    const mPagado = Number(reserva.saldoPagado)
-    if (mFinal > 0 && mPagado >= mFinal) {
-      await prisma.recordatorio.updateMany({
-        where: { reservaId: req.params.id as string, tipo: TipoRecordatorio.PAGO_SALDO, ejecutado: false },
-        data: { ejecutado: true, fechaEjecucion: new Date(), resultado: 'Saldo cancelado — marcado automáticamente al registrar pago total' },
+    const id = req.params.id as string
+
+    const reserva = await prisma.$transaction(async (tx) => {
+      const actualizada = await tx.reserva.update({
+        where: { id },
+        data: { cotizacionId, tipoReserva, montoFinal, saldoPagado, estado, observaciones, motivoCancelacion },
       })
-    }
-    res.json({
-      ...reserva,
-      saldoPendiente: Number(reserva.montoFinal) - Number(reserva.saldoPagado),
+      await cerrarRecordatoriosSiCorresponde(tx, id, actualizada.montoFinal, actualizada.saldoPagado)
+      return actualizada
     })
+
+    res.json(conSaldoPendiente(reserva))
   } catch (e: any) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Reserva no encontrada' })
     res.status(400).json({ error: e.message })
   }
 })
@@ -223,7 +181,7 @@ router.patch('/:id/confirmar', async (req: Request, res: Response) => {
 })
 
 // PATCH /api/reservas/:id/cancelar  ← usado por el Flujo 4
-router.patch('/:id/cancelar', async (req: Request, res: Response) => {
+router.patch('/:id/cancelar', validateBody(cancelarReservaSchema), async (req: Request, res: Response) => {
   try {
     const { motivo } = req.body
     const reserva = await prisma.reserva.update({
@@ -240,34 +198,33 @@ router.patch('/:id/cancelar', async (req: Request, res: Response) => {
 })
 
 // PATCH /api/reservas/:id/pago — registra un pago parcial o total
-router.patch('/:id/pago', async (req: Request, res: Response) => {
+//
+// Atómico: usamos `increment` de Prisma, que se traduce en un único
+// UPDATE ... SET saldo_pagado = saldo_pagado + $monto a nivel SQL. Antes
+// se leía saldoPagado, se sumaba en JS y se escribía el valor absoluto:
+// si dos pagos llegaban casi al mismo tiempo (ej. dos webhooks de n8n
+// reintentando), ambos podían leer el mismo saldo viejo y el segundo
+// UPDATE pisaba al primero, perdiendo un pago. Con `increment` cada
+// request suma sobre el valor real en la base, no sobre una copia leída
+// en memoria — no importa el orden ni la concurrencia.
+router.patch('/:id/pago', validateBody(registrarPagoSchema), async (req: Request, res: Response) => {
   try {
     const { monto } = req.body
-    if (!monto || monto <= 0) return res.status(400).json({ error: 'monto debe ser > 0' })
+    const id = req.params.id as string
+    if (!id) return res.status(400).json({ error: 'ID requerido' })
 
-    const id = req.params.id as string;
-    if (!id) return res.status(400).json({ error: 'ID requerido' });
-
-    const actual = await prisma.reserva.findUnique({ where: { id } });
-    if (!actual) return res.status(404).json({ error: 'Reserva no encontrada' });
-    const nuevoSaldo = Number(actual.saldoPagado) + Number(monto)
-    const pagadoTotal = nuevoSaldo >= Number(actual.montoFinal)
-    const reserva = await prisma.reserva.update({
-      where: { id: req.params.id as string },
-      data: { saldoPagado: nuevoSaldo },
-    })
-    // Si el pago cubre el total, cerrar los recordatorios de PAGO_SALDO
-    if (pagadoTotal) {
-      await prisma.recordatorio.updateMany({
-        where: { reservaId: id, tipo: TipoRecordatorio.PAGO_SALDO, ejecutado: false },
-        data: { ejecutado: true, fechaEjecucion: new Date(), resultado: 'Saldo cancelado — marcado automáticamente al registrar pago total' },
+    const reserva = await prisma.$transaction(async (tx) => {
+      const actualizada = await tx.reserva.update({
+        where: { id },
+        data: { saldoPagado: { increment: monto } },
       })
-    }
-    res.json({
-      ...reserva,
-      saldoPendiente: Number(reserva.montoFinal) - Number(reserva.saldoPagado),
+      await cerrarRecordatoriosSiCorresponde(tx, id, actualizada.montoFinal, actualizada.saldoPagado)
+      return actualizada
     })
+
+    res.json(conSaldoPendiente(reserva))
   } catch (e: any) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Reserva no encontrada' })
     res.status(400).json({ error: e.message })
   }
 })

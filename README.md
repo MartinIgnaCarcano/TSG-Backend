@@ -53,6 +53,67 @@ Variables de entorno relevantes (ver `.env.example`): `JWT_SECRET`,
 
 ---
 
+## Fase 2 — Robustez
+
+### Validación de datos (Zod)
+`POST`/`PUT` de `clientes`, `cotizaciones` y `reservas`, además de
+`PATCH /reservas/:id/pago` y `PATCH /reservas/:id/cancelar`, validan el
+body con [Zod](https://zod.dev) antes de llegar a Prisma. Si falla,
+responden `400` con el detalle de qué campo está mal:
+```json
+{
+  "error": "Datos inválidos",
+  "detalles": [{ "campo": "email", "mensaje": "email inválido" }]
+}
+```
+Los schemas viven en `src/schemas/*.schema.ts`; el middleware genérico
+es `src/middleware/validate.ts` (`validateBody(schema)`).
+
+### Pago atómico
+`PATCH /api/reservas/:id/pago` usa `prisma.$transaction` + `increment`
+(no lee-y-escribe en JS) para evitar perder pagos cuando llegan dos
+requests casi simultáneas (ej. reintentos de un webhook de n8n). El
+saldo se suma siempre sobre el valor real en la base, sin importar el
+orden de llegada.
+
+### Capa de servicios
+La lógica de negocio del flujo de reservas (cálculo de `saldoPendiente`,
+inferencia de fechas de viaje, generación automática de recordatorios,
+cierre de recordatorios de `PAGO_SALDO` al saldar) se movió a
+`src/services/reservas.service.ts`. Las rutas en `src/routes/reservas.ts`
+quedaron como controladores delgados: validan, llaman al servicio,
+traducen el resultado a HTTP.
+
+### Paginación opcional
+`GET /api/clientes`, `GET /api/cotizaciones` y `GET /api/reservas`
+aceptan `?page=` y `?pageSize=` (máx. 100). **Sin estos parámetros, la
+respuesta sigue siendo el array plano de siempre** — no rompe a n8n ni
+al front actual. Con ellos, la respuesta cambia de forma:
+```json
+{ "data": [...], "page": 1, "pageSize": 20, "total": 57, "totalPages": 3 }
+```
+
+### Parametrización de IVA y split ida/vuelta
+El 21% de impuestos y el split 50/50 entre ida y vuelta que la
+Calculadora del front usaba hardcodeados ahora viven en
+`ParametroSistema` (`GET/PUT /api/parametros/:clave`):
+
+| Clave | Valor semilla | Uso |
+|---|---|---|
+| `IVA_PORCENTAJE` | `0.21` | Calculadora: impuestos = total × IVA_PORCENTAJE |
+| `SPLIT_IDA_VUELTA` | `0.5` | Calculadora: precioIda = total × SPLIT_IDA_VUELTA |
+
+El front (`Calculadora.js`) los lee de `/api/parametros` antes de crear
+la cotización; si la API no responde, usa los mismos valores de
+siempre como fallback (no rompe la demo).
+
+> **Pendiente para una fase posterior** (no incluido en Fase 2): numeración
+> secuencial vía Postgres sequences (hoy `numeroCliente`/`numeroCotizacion`/
+> `numeroReserva` usan `Date.now()`) y migrar `onDelete: Cascade → Restrict`
+> en el schema de Prisma.
+
+---
+
 ## Convenciones generales
 
 - Los **DELETE** son siempre bajas lógicas — setean el campo `baja`, no eliminan el registro.

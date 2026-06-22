@@ -122,7 +122,21 @@ async function main() {
     update: {},
     create: { clave: 'USD_BLUE', valor: '1450', descripcion: 'Dólar blue venta (semilla)' },
   })
-  console.log('  ✓ USD_OFICIAL y USD_BLUE')
+  // Antes hardcodeados en el front (Calculadora.js): 21% de impuestos y
+  // split 50/50 entre tramo de ida y vuelta. Movidos acá para que el
+  // front los lea de la API en vez de tenerlos fijos en el JS — cambiar
+  // el IVA o el split ya no requiere tocar código, solo este parámetro.
+  await prisma.parametroSistema.upsert({
+    where: { clave: 'IVA_PORCENTAJE' },
+    update: {},
+    create: { clave: 'IVA_PORCENTAJE', valor: '0.21', descripcion: 'Porcentaje de impuestos aplicado sobre el total (Calculadora)' },
+  })
+  await prisma.parametroSistema.upsert({
+    where: { clave: 'SPLIT_IDA_VUELTA' },
+    update: {},
+    create: { clave: 'SPLIT_IDA_VUELTA', valor: '0.5', descripcion: 'Proporción del total asignada al tramo de ida (el resto va a vuelta)' },
+  })
+  console.log('  ✓ USD_OFICIAL, USD_BLUE, IVA_PORCENTAJE, SPLIT_IDA_VUELTA')
 
   // ====================== HOTELES ======================
   console.log('🌱 Seed: hoteles…')

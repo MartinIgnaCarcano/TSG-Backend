@@ -1,16 +1,43 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
+import { validateBody } from '../middleware/validate'
+import { crearClienteSchema, actualizarClienteSchema } from '../schemas/cliente.schema'
+import { parsePaginacion } from '../lib/pagination'
 
 const router = Router()
 
 // GET /api/clientes
+// Sin ?page/?pageSize → array plano (compat con front/n8n actuales).
+// Con ?page/?pageSize → { data, page, pageSize, total, totalPages }.
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const clientes = await prisma.cliente.findMany({
-      where: { baja: null },
-      orderBy: { alta: 'desc' },
+    const paginacion = parsePaginacion(req.query as Record<string, unknown>)
+
+    if (!paginacion) {
+      const clientes = await prisma.cliente.findMany({
+        where: { baja: null },
+        orderBy: { alta: 'desc' },
+      })
+      return res.json(clientes)
+    }
+
+    const [clientes, total] = await Promise.all([
+      prisma.cliente.findMany({
+        where: { baja: null },
+        orderBy: { alta: 'desc' },
+        skip: paginacion.skip,
+        take: paginacion.take,
+      }),
+      prisma.cliente.count({ where: { baja: null } }),
+    ])
+
+    res.json({
+      data: clientes,
+      page: paginacion.page,
+      pageSize: paginacion.pageSize,
+      total,
+      totalPages: Math.ceil(total / paginacion.pageSize),
     })
-    res.json(clientes)
   } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
@@ -38,7 +65,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 })
 
 // POST /api/clientes
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', validateBody(crearClienteSchema), async (req: Request, res: Response) => {
   try {
     const { nombre, apellido, telefono, email } = req.body
     const numeroCliente = `CLI-${Date.now()}`
@@ -52,7 +79,7 @@ router.post('/', async (req: Request, res: Response) => {
 })
 
 // PUT /api/clientes/:id
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', validateBody(actualizarClienteSchema), async (req: Request, res: Response) => {
   try {
     const { nombre, apellido, telefono, email } = req.body
     const cliente = await prisma.cliente.update({
