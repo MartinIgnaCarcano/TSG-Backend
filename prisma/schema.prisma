@@ -41,11 +41,38 @@ model Destino {
   tramosDestino   Tramo[]  @relation("TramoDestino")
   viajesTorigen   Viaje[]  @relation("ViajeOrigen")
   viajesToDestino Viaje[]  @relation("ViajeDestino")
+  hoteles         Hotel[]
   alta            DateTime @default(now()) @map("alta")
   modificacion    DateTime @updatedAt @map("modificacion")
   baja            DateTime? @map("baja")
 
   @@map("destinos")
+}
+
+// =====================================================
+// HOTEL — catálogo del admin, opcionalmente populado por Flujo 6
+// =====================================================
+model Hotel {
+  id              String   @id @default(cuid())
+  nombre          String
+  destinoId       String   @map("destino_id")
+  destino         Destino  @relation(fields: [destinoId], references: [id])
+  estrellas       Int      @default(3) // 1..5
+  precioNoche     Decimal  @db.Decimal(10, 2) @map("precio_noche") // USD
+  moneda          String   @default("USD")
+  descripcion     String?
+  direccion       String?
+  urlImagen       String?  @map("url_imagen")
+  urlReserva      String?  @map("url_reserva") // link a Booking u origen
+  fuente          String   @default("MANUAL") // MANUAL | BOOKING | RAPIDAPI
+  rating          Decimal? @db.Decimal(3, 1) // ej: 8.7 sobre 10
+  alta            DateTime @default(now()) @map("alta")
+  modificacion    DateTime @updatedAt @map("modificacion")
+  baja            DateTime? @map("baja")
+  cotizaciones    Cotizacion[]
+
+  @@index([destinoId, baja])
+  @@map("hoteles")
 }
 
 // =====================================================
@@ -112,6 +139,11 @@ model Cotizacion {
   precioIdaYVuelta Decimal @db.Decimal(12, 2) @map("precio_ida_y_vuelta")
   impuestos       Decimal  @db.Decimal(12, 2)
   observaciones   String?
+  // Hotel opcional — agregado por el vendedor después de la cotización de vuelos
+  hotelId         String?  @map("hotel_id")
+  hotel           Hotel?   @relation(fields: [hotelId], references: [id])
+  noches          Int?     // cantidad de noches
+  precioHotel     Decimal? @db.Decimal(12, 2) @map("precio_hotel") // total hotel (precioNoche * noches)
   reservas        Reserva[]
   alta            DateTime @default(now()) @map("alta")
   modificacion    DateTime @updatedAt @map("modificacion")
@@ -131,10 +163,16 @@ model Reserva {
   cliente         Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   tipoReserva     TipoReserva
   montoFinal      Decimal  @db.Decimal(12, 2) @map("monto_final")
+  saldoPagado     Decimal  @db.Decimal(12, 2) @default(0) @map("saldo_pagado")
+  // saldoPendiente se calcula: montoFinal - saldoPagado (no se guarda)
+  fechaViaje      DateTime? @map("fecha_viaje") // primera salida del primer tramo
+  fechaRegreso    DateTime? @map("fecha_regreso") // última llegada
   numeroReserva   String   @unique @map("numero_reserva")
   estado          EstadoReserva @default(EN_PROCESO)
+  motivoCancelacion String? @map("motivo_cancelacion")
   fechaReserva    DateTime @default(now()) @map("fecha_reserva")
   observaciones   String?
+  recordatorios   Recordatorio[]
   alta            DateTime @default(now()) @map("alta")
   modificacion    DateTime @updatedAt @map("modificacion")
   baja            DateTime? @map("baja")
@@ -176,3 +214,43 @@ model AdminUser {
 
   @@map("admin_users")
 }
+
+// =====================================================
+// RECORDATORIO — los manda el Flujo 3 (cron 9 AM)
+// =====================================================
+enum TipoRecordatorio {
+  PAGO_SALDO   // 14 días antes del viaje, si saldoPendiente > 0
+  CHECK_IN     // 1 día antes del viaje
+  POST_VIAJE   // 1 día después del regreso (feedback)
+  CLIMA        // 3 días antes (opcional)
+  VOUCHER      // 1 día antes (opcional)
+}
+
+model Recordatorio {
+  id              String   @id @default(cuid())
+  reservaId       String   @map("reserva_id")
+  reserva         Reserva  @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  tipo            TipoRecordatorio
+  fechaProgramada DateTime @map("fecha_programada")
+  ejecutado       Boolean  @default(false)
+  fechaEjecucion  DateTime? @map("fecha_ejecucion")
+  resultado       String?  // texto del mensaje enviado o error
+  alta            DateTime @default(now()) @map("alta")
+  modificacion    DateTime @updatedAt @map("modificacion")
+
+  @@index([fechaProgramada, ejecutado])
+  @@map("recordatorios")
+}
+
+// =====================================================
+// PARAMETRO SISTEMA — config / tipo de cambio / feature flags
+// =====================================================
+model ParametroSistema {
+  clave        String   @id
+  valor        String
+  descripcion  String?
+  modificacion DateTime @updatedAt @map("modificacion")
+
+  @@map("parametros_sistema")
+}
+

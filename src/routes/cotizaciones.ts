@@ -3,13 +3,31 @@ import { prisma } from '../lib/prisma'
 
 const router = Router()
 
-// GET /api/cotizaciones?viajeId=...
+// GET /api/cotizaciones
+//   ?viajeId=...
+//   ?estado=PENDIENTE
+//   ?vigentes=true   → solo PENDIENTE/ENVIADA, no vencidas (usado por Flujo 2 Smart Pricing)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const viajeId = req.query.viajeId as string | undefined
+    const estado = req.query.estado as string | undefined
+    const vigentes = req.query.vigentes === 'true'
+
+    const where: any = { baja: null }
+    if (viajeId) where.viajeId = viajeId
+    if (estado) where.estado = estado
+    if (vigentes) {
+      where.estado = { in: ['PENDIENTE', 'ENVIADA'] }
+      where.fechaVencimiento = { gt: new Date() }
+    }
+
     const cotizaciones = await prisma.cotizacion.findMany({
-      where: { baja: null, ...(viajeId && { viajeId }) },
-      include: { viaje: true, cliente: true },
+      where,
+      include: {
+        viaje: { include: { origen: true, destino: true, tramos: { where: { baja: null }, orderBy: { orden: 'asc' } } } },
+        cliente: true,
+        hotel: true,
+      } as any,
       orderBy: { alta: 'desc' },
     })
     res.json(cotizaciones)
@@ -30,7 +48,8 @@ router.get('/:id', async (req: Request, res: Response) => {
           },
         },
         cliente: true,
-      },
+        hotel: true,
+      } as any,
     })
     if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada' })
     res.json(cotizacion)
@@ -68,7 +87,7 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/cotizaciones/:id
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { fechaVencimiento, moneda, precioIda, precioVuelta, precioIdaYVuelta, impuestos, observaciones, estado, ofertaExternaID } = req.body
+    const { fechaVencimiento, moneda, precioIda, precioVuelta, precioIdaYVuelta, impuestos, observaciones, estado, ofertaExternaID, hotelId, noches, precioHotel } = req.body
     const cotizacion = await prisma.cotizacion.update({
       where: { id: req.params.id as string },
       data: {
@@ -81,7 +100,12 @@ router.put('/:id', async (req: Request, res: Response) => {
         observaciones,
         estado,
         ofertaExternaID,
+        // Hotel opcional
+        ...(hotelId !== undefined && { hotelId: hotelId || null }),
+        ...(noches !== undefined && { noches: noches || null }),
+        ...(precioHotel !== undefined && { precioHotel: precioHotel || null }),
       },
+      include: { hotel: true } as any,
     })
     res.json(cotizacion)
   } catch (e: any) {
