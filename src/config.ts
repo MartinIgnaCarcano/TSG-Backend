@@ -66,10 +66,32 @@ export const config = {
   rapidApiKey: process.env.RAPIDAPI_KEY,
   rapidApiFlightsHost: process.env.RAPIDAPI_FLIGHTS_HOST ?? 'google-flights2.p.rapidapi.com',
   mockFlights: optionalBoolean('MOCK_FLIGHTS', false),
+
+  // Auth — el login SIEMPRE emite JWT (para que el front lo pueda usar
+  // ya mismo), pero el middleware solo lo EXIGE si AUTH_ENABLED=true.
+  // Default false: no rompe la demo ni los workflows de n8n existentes
+  // hasta que el front (React, Fase R1) sepa mandar el token.
+  jwtSecret: required('JWT_SECRET'),
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '8h',
+  authEnabled: optionalBoolean('AUTH_ENABLED', false),
+  // n8n se autentica con esta API key fija (header x-api-key), no con JWT.
+  n8nApiKey: process.env.N8N_API_KEY,
 }
 
 if (!config.rapidApiKey && !config.mockFlights) {
   console.warn(
     '⚠️  No hay RAPIDAPI_KEY configurada — la calculadora de vuelos va a usar datos mock.',
+  )
+}
+
+if (config.authEnabled && !config.n8nApiKey) {
+  throw new Error(
+    '❌ AUTH_ENABLED=true pero falta N8N_API_KEY — los workflows de n8n se quedarían sin acceso. Configurá N8N_API_KEY en .env.',
+  )
+}
+
+if (!config.authEnabled) {
+  console.warn(
+    '⚠️  AUTH_ENABLED=false — la API sigue abierta sin autenticación (modo demo). El login ya emite JWT para cuando se active.',
   )
 }

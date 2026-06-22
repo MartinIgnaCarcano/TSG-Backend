@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import { config } from './config'
+import { requireAuth } from './middleware/auth'
 import clientesRouter from './routes/clientes'
 import viajesRouter from './routes/viajes'
 import tramosRouter from './routes/tramos'
@@ -36,6 +37,11 @@ app.use(
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+// Auth global: si AUTH_ENABLED=false (default, modo demo) deja pasar
+// todo sin chequear nada. Cuando se active, exige Bearer JWT o
+// x-api-key (n8n) salvo en las rutas públicas (health + login).
+app.use(requireAuth)
 
 // Rutas
 app.use('/api/clientes', clientesRouter)

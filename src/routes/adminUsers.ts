@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
+import { config } from '../config'
+import { loginRateLimit } from '../middleware/loginRateLimit'
 
 const router = Router()
 const SALT_ROUNDS = 10
@@ -51,7 +54,7 @@ router.post('/', async (req: Request, res: Response) => {
 })
 
 // POST /api/admin-users/login
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', loginRateLimit, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body
     const admin = await prisma.adminUser.findUnique({ where: { email } })
@@ -60,7 +63,14 @@ router.post('/login', async (req: Request, res: Response) => {
     const valid = await bcrypt.compare(password, admin.passwordHash)
     if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' })
 
-    res.json({ id: admin.id, email: admin.email, nombre: admin.nombre })
+    const token = jwt.sign({ id: admin.id, email: admin.email }, config.jwtSecret, {
+      expiresIn: config.jwtExpiresIn,
+    } as jwt.SignOptions)
+
+    res.json({
+      token,
+      user: { id: admin.id, email: admin.email, nombre: admin.nombre },
+    })
   } catch (e: any) {
     res.status(500).json({ error: e.message })
   }

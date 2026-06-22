@@ -28,6 +28,31 @@ montado en `src/index.ts`.
 
 ---
 
+## Autenticación
+
+El login (`POST /api/admin-users/login`) **siempre** devuelve un JWT:
+
+```json
+{ "token": "...", "user": { "id": 1, "email": "...", "nombre": "..." } }
+```
+
+Pero ese token solo se **exige** si la variable de entorno
+`AUTH_ENABLED=true`. Con `AUTH_ENABLED=false` (default, modo demo), la
+API queda abierta como hasta ahora — ningún endpoint pide token.
+
+Cuando `AUTH_ENABLED=true`, todas las rutas excepto `GET /api` (health)
+y `POST /api/admin-users/login` exigen uno de estos dos headers:
+
+- **Admins (front):** `Authorization: Bearer <token>` — el JWT que devuelve el login. Expira a las 8 h (`JWT_EXPIRES_IN`).
+- **n8n (workflows):** `x-api-key: <N8N_API_KEY>` — una key fija, no es un JWT. Hay que configurar este mismo valor en los 5 workflows de n8n que llaman a esta API antes de activar `AUTH_ENABLED`.
+
+El login también tiene rate limiting: **5 intentos cada 15 minutos por IP**.
+
+Variables de entorno relevantes (ver `.env.example`): `JWT_SECRET`,
+`JWT_EXPIRES_IN`, `AUTH_ENABLED`, `N8N_API_KEY`.
+
+---
+
 ## Convenciones generales
 
 - Los **DELETE** son siempre bajas lógicas — setean el campo `baja`, no eliminan el registro.
