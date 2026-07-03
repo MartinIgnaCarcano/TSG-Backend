@@ -24,6 +24,15 @@
     {
       "parameters": {
         "url": "http://localhost:3001/api/cotizaciones?vigentes=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $vars.N8N_API_KEY }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 15000
         }

@@ -1,7 +1,9 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, MedioPago, TipoRecordatorio, TipoDocumentoIdentidad } from '@prisma/client'
 import bcrypt from 'bcrypt'
 
 const prisma = new PrismaClient()
+
+const dias = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000)
 
 const DESTINOS = [
   { codigoIATA: 'EZE', nombre: 'Buenos Aires (Ezeiza)', pais: 'Argentina', timezone: 'America/Argentina/Buenos_Aires' },
@@ -46,69 +48,219 @@ async function main() {
   })
   console.log('  ✓ admin@stg.com / admin123')
 
-  // Cliente y reserva de ejemplo para que el front nunca se vea vacío
-  console.log('🌱 Seed: cliente + reserva demo…')
-  const ezeId = (await prisma.destino.findUnique({ where: { codigoIATA: 'EZE' } }))!.id
-  const madId = (await prisma.destino.findUnique({ where: { codigoIATA: 'MAD' } }))!.id
+  // ====================== CLIENTES + RESERVAS DE PRUEBA ======================
+  // Una reserva por estado de la máquina de estados (EN_PROCESO, SEÑADA,
+  // PAGADA, DOCUMENTADA) + una "vencida" para Flujo4, de forma que al
+  // levantar el front después de un reset ya haya algo para apretar todos
+  // los botones (confirmar, pagar, emitir voucher/contrato, cancelar) y
+  // probar los webhooks/cron sin tener que armar todo a mano antes de la demo.
+  console.log('🌱 Seed: clientes + reservas de prueba…')
 
-  const cli = await prisma.cliente.upsert({
-    where: { numeroCliente: 'CLI-SEED-001' },
-    update: { baja: null },
-    create: {
-      numeroCliente: 'CLI-SEED-001',
-      nombre: 'María',
-      apellido: 'García',
-      email: 'maria.garcia@example.com',
-      telefono: '+5492611234567',
-    },
-  })
+  const destino = async (iata: string) => (await prisma.destino.findUnique({ where: { codigoIATA: iata } }))!.id
+  const [ezeId, madId, miaId, cunId, bcnId, gruId] = await Promise.all(
+    ['EZE', 'MAD', 'MIA', 'CUN', 'BCN', 'GRU'].map(destino),
+  )
 
-  // Buscamos un viaje existente o lo creamos
-  let viaje = await prisma.viaje.findFirst({
-    where: { origenId: ezeId, destinoId: madId, baja: null },
-  })
-  if (!viaje) {
-    viaje = await prisma.viaje.create({
-      data: {
-        origenId: ezeId,
-        destinoId: madId,
-        tieneEscalas: false,
-        descripcion: 'EZE → MAD demo',
+  async function viajeEntre(origenId: string, destinoId: string, descripcion: string) {
+    let v = await prisma.viaje.findFirst({ where: { origenId, destinoId, baja: null } })
+    if (!v) v = await prisma.viaje.create({ data: { origenId, destinoId, tieneEscalas: false, descripcion } })
+    return v
+  }
+
+  async function cliente(numeroCliente: string, nombre: string, apellido: string, email: string, telefono: string) {
+    return prisma.cliente.upsert({
+      where: { numeroCliente },
+      update: { baja: null },
+      create: { numeroCliente, nombre, apellido, email, telefono },
+    })
+  }
+
+  async function cotizacion(numero: string, viajeId: string, clienteId: string, precios: { ida: number; vuelta: number; idaVuelta: number; impuestos: number }) {
+    return prisma.cotizacion.upsert({
+      where: { numeroCotizacion: numero },
+      update: { baja: null },
+      create: {
+        numeroCotizacion: numero,
+        viajeId,
+        clienteId,
+        fechaVencimiento: dias(30),
+        moneda: 'USD',
+        precioIda: precios.ida,
+        precioVuelta: precios.vuelta,
+        precioIdaYVuelta: precios.idaVuelta,
+        impuestos: precios.impuestos,
+        observaciones: 'Datos de prueba del seed',
       },
     })
   }
 
-  const cot = await prisma.cotizacion.upsert({
-    where: { numeroCotizacion: 'COT-SEED-001' },
-    update: { baja: null },
-    create: {
-      numeroCotizacion: 'COT-SEED-001',
-      viajeId: viaje.id,
-      clienteId: cli.id,
-      fechaVencimiento: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      moneda: 'USD',
-      precioIda: 850,
-      precioVuelta: 920,
-      precioIdaYVuelta: 1700,
-      impuestos: 250,
-      observaciones: 'Datos de ejemplo del seed',
-    },
-  })
-
-  await prisma.reserva.upsert({
+  // --- 1) EN_PROCESO, sin seña — RES-SEED-001 (la original, el front nunca se ve vacío) ---
+  const cliProceso = await cliente('CLI-SEED-001', 'María', 'García', 'maria.garcia@example.com', '+5492611234567')
+  const viajeMad = await viajeEntre(ezeId, madId, 'EZE → MAD demo')
+  const cotProceso = await cotizacion('COT-SEED-001', viajeMad.id, cliProceso.id, { ida: 850, vuelta: 920, idaVuelta: 1700, impuestos: 250 })
+  const resProceso = await prisma.reserva.upsert({
     where: { numeroReserva: 'RES-SEED-001' },
-    update: { baja: null },
+    update: { baja: null, estado: 'EN_PROCESO', saldoPagado: 0 },
     create: {
       numeroReserva: 'RES-SEED-001',
-      cotizacionId: cot.id,
-      clienteId: cli.id,
+      cotizacionId: cotProceso.id,
+      clienteId: cliProceso.id,
       tipoReserva: 'IDA_Y_VUELTA',
       montoFinal: 1950,
-      observaciones: 'Reserva de ejemplo',
+      estado: 'EN_PROCESO',
+      fechaViaje: dias(35),
+      fechaRegreso: dias(45),
+      observaciones: 'EN_PROCESO — probar "Confirmar seña"',
     },
   })
 
-  console.log('  ✓ cliente y reserva demo')
+  // --- 2) SEÑADA, con seña parcial registrada — probar "Emitir contrato" y pago de saldo ---
+  const cliSeñada = await cliente('CLI-SEED-002', 'Juan', 'Pérez', 'juan.perez@example.com', '+5492611234568')
+  const viajeMia = await viajeEntre(ezeId, miaId, 'EZE → MIA demo')
+  const cotSeñada = await cotizacion('COT-SEED-002', viajeMia.id, cliSeñada.id, { ida: 600, vuelta: 650, idaVuelta: 1250, impuestos: 180 })
+  const resSeñada = await prisma.reserva.upsert({
+    where: { numeroReserva: 'RES-SEED-002' },
+    update: { baja: null, estado: 'SEÑADA', saldoPagado: 500 },
+    create: {
+      numeroReserva: 'RES-SEED-002',
+      cotizacionId: cotSeñada.id,
+      clienteId: cliSeñada.id,
+      tipoReserva: 'IDA_Y_VUELTA',
+      montoFinal: 1430,
+      saldoPagado: 500,
+      estado: 'SEÑADA',
+      fechaViaje: dias(25),
+      fechaRegreso: dias(32),
+      observaciones: 'SEÑADA — probar "Emitir contrato" (Flujo7) y pago de saldo',
+    },
+  })
+  await prisma.pasajero.upsert({
+    where: { id: 'seed-pasajero-002' },
+    update: {},
+    create: {
+      id: 'seed-pasajero-002',
+      reservaId: resSeñada.id,
+      nombre: 'Juan',
+      apellido: 'Pérez',
+      documentoTipo: TipoDocumentoIdentidad.DNI,
+      documentoNumero: '30123456',
+      fechaNacimiento: new Date('1988-04-12'),
+      nacionalidad: 'Argentina',
+      esTitular: true,
+    },
+  })
+  await prisma.pago.create({
+    data: { reservaId: resSeñada.id, monto: 500, medioPago: MedioPago.TRANSFERENCIA, referencia: 'SEED-PAGO-002', fechaPago: dias(-2) },
+  })
+
+  // --- 3) PAGADA, saldo cubierto — probar "Emitir voucher" (Flujo7) ---
+  const cliPagada = await cliente('CLI-SEED-003', 'Lucía', 'Fernández', 'lucia.fernandez@example.com', '+5492611234569')
+  const viajeCun = await viajeEntre(ezeId, cunId, 'EZE → CUN demo')
+  const cotPagada = await cotizacion('COT-SEED-003', viajeCun.id, cliPagada.id, { ida: 700, vuelta: 740, idaVuelta: 1440, impuestos: 210 })
+  const resPagada = await prisma.reserva.upsert({
+    where: { numeroReserva: 'RES-SEED-003' },
+    update: { baja: null, estado: 'PAGADA', saldoPagado: 1650 },
+    create: {
+      numeroReserva: 'RES-SEED-003',
+      cotizacionId: cotPagada.id,
+      clienteId: cliPagada.id,
+      tipoReserva: 'IDA_Y_VUELTA',
+      montoFinal: 1650,
+      saldoPagado: 1650,
+      estado: 'PAGADA',
+      fechaViaje: dias(15),
+      fechaRegreso: dias(22),
+      observaciones: 'PAGADA — probar "Emitir voucher" (Flujo7)',
+    },
+  })
+  await prisma.pasajero.upsert({
+    where: { id: 'seed-pasajero-003' },
+    update: {},
+    create: {
+      id: 'seed-pasajero-003',
+      reservaId: resPagada.id,
+      nombre: 'Lucía',
+      apellido: 'Fernández',
+      documentoTipo: TipoDocumentoIdentidad.DNI,
+      documentoNumero: '32456789',
+      fechaNacimiento: new Date('1992-09-03'),
+      nacionalidad: 'Argentina',
+      esTitular: true,
+    },
+  })
+  await prisma.pago.create({
+    data: { reservaId: resPagada.id, monto: 1650, medioPago: MedioPago.MERCADOPAGO, referencia: 'SEED-PAGO-003', fechaPago: dias(-1) },
+  })
+
+  // --- 4) DOCUMENTADA, voucher ya emitido — probar reemisión y CHECK_IN ---
+  const cliDoc = await cliente('CLI-SEED-004', 'Tomás', 'Rodríguez', 'tomas.rodriguez@example.com', '+5492611234570')
+  const viajeBcn = await viajeEntre(ezeId, bcnId, 'EZE → BCN demo')
+  const cotDoc = await cotizacion('COT-SEED-004', viajeBcn.id, cliDoc.id, { ida: 780, vuelta: 810, idaVuelta: 1590, impuestos: 230 })
+  const resDoc = await prisma.reserva.upsert({
+    where: { numeroReserva: 'RES-SEED-004' },
+    update: { baja: null, estado: 'DOCUMENTADA', saldoPagado: 1820 },
+    create: {
+      numeroReserva: 'RES-SEED-004',
+      cotizacionId: cotDoc.id,
+      clienteId: cliDoc.id,
+      tipoReserva: 'IDA_Y_VUELTA',
+      montoFinal: 1820,
+      saldoPagado: 1820,
+      estado: 'DOCUMENTADA',
+      fechaViaje: dias(1),
+      fechaRegreso: dias(8),
+      observaciones: 'DOCUMENTADA — viaje mañana, probar recordatorio CHECK_IN',
+    },
+  })
+  await prisma.pasajero.upsert({
+    where: { id: 'seed-pasajero-004' },
+    update: {},
+    create: {
+      id: 'seed-pasajero-004',
+      reservaId: resDoc.id,
+      nombre: 'Tomás',
+      apellido: 'Rodríguez',
+      documentoTipo: TipoDocumentoIdentidad.PASAPORTE,
+      documentoNumero: 'AAB123456',
+      fechaNacimiento: new Date('1979-12-20'),
+      nacionalidad: 'Argentina',
+      esTitular: true,
+    },
+  })
+
+  // --- 5) Vencida — saldo pendiente y viaje en 3 días, para Flujo4 (?vencidas=true) ---
+  const cliVencida = await cliente('CLI-SEED-005', 'Carla', 'Sosa', 'carla.sosa@example.com', '+5492611234571')
+  const viajeGru = await viajeEntre(ezeId, gruId, 'EZE → GRU demo')
+  const cotVencida = await cotizacion('COT-SEED-005', viajeGru.id, cliVencida.id, { ida: 420, vuelta: 450, idaVuelta: 870, impuestos: 120 })
+  const resVencida = await prisma.reserva.upsert({
+    where: { numeroReserva: 'RES-SEED-005' },
+    update: { baja: null, estado: 'SEÑADA', saldoPagado: 200 },
+    create: {
+      numeroReserva: 'RES-SEED-005',
+      cotizacionId: cotVencida.id,
+      clienteId: cliVencida.id,
+      tipoReserva: 'IDA_Y_VUELTA',
+      montoFinal: 990,
+      saldoPagado: 200,
+      estado: 'SEÑADA',
+      fechaViaje: dias(3),
+      fechaRegreso: dias(9),
+      observaciones: 'Vencida — saldo pendiente con viaje en 3 días, para Flujo4 (cancelación automática)',
+    },
+  })
+
+  // --- Recordatorios para HOY, ya enganchados a reservas reales — así Flujo3
+  // (cron 9AM / ejecución manual) encuentra algo sin depender de que las
+  // fechas de viaje coincidan justo con -14/-1/+1 días al momento del seed.
+  await prisma.recordatorio.createMany({
+    data: [
+      { reservaId: resVencida.id, tipo: TipoRecordatorio.PAGO_SALDO, fechaProgramada: new Date() },
+      { reservaId: resDoc.id, tipo: TipoRecordatorio.CHECK_IN, fechaProgramada: new Date() },
+      { reservaId: resPagada.id, tipo: TipoRecordatorio.POST_VIAJE, fechaProgramada: new Date() },
+    ],
+  })
+
+  console.log('  ✓ 5 clientes + 5 reservas (EN_PROCESO, SEÑADA, PAGADA, DOCUMENTADA, vencida) + pasajeros + pagos + recordatorios de hoy')
 
   // Parámetros del sistema (los actualiza el Flujo 5 cada día, acá los seedeamos)
   console.log('🌱 Seed: parámetros sistema…')

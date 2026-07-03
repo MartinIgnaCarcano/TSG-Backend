@@ -24,6 +24,15 @@
     {
       "parameters": {
         "url": "http://localhost:3001/api/reservas?vencidas=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $vars.N8N_API_KEY }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 15000
         }
@@ -72,6 +81,15 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"motivo\": \"{{ $json.motivo }}\"\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $vars.N8N_API_KEY }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 10000
         }

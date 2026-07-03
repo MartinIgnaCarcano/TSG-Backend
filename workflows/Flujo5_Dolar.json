@@ -57,6 +57,15 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ valor: $json.valor, descripcion: $json.descripcion }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $vars.N8N_API_KEY }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 10000
         }

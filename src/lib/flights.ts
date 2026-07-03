@@ -20,11 +20,26 @@ export interface OpcionVuelo {
   esMasBarata: boolean
 }
 
+export type ClaseVuelo = 'ECONOMICA' | 'PREMIUM_ECONOMICA' | 'EJECUTIVA' | 'PRIMERA'
+
 export interface ParamsBusqueda {
   origenIATA: string
   destinoIATA: string
   fechaIda: string   // YYYY-MM-DD
   fechaVuelta: string
+  clase?: ClaseVuelo // default ECONOMICA
+  adultos?: number   // default 1
+}
+
+// Mapea la clase del dominio al parámetro travel_class de google-flights2,
+// que lo espera como string enum: ECONOMY | PREMIUM_ECONOMY | BUSINESS | FIRST.
+function travelClassDe(clase?: ClaseVuelo): string {
+  switch (clase) {
+    case 'PREMIUM_ECONOMICA': return 'PREMIUM_ECONOMY'
+    case 'EJECUTIVA': return 'BUSINESS'
+    case 'PRIMERA': return 'FIRST'
+    default: return 'ECONOMY'
+  }
 }
 
 function sumarDias(fechaISO: string, dias: number): string {
@@ -46,6 +61,8 @@ async function buscarUnaCombinacion(
   destinoIATA: string,
   ida: string,
   vuelta: string,
+  travelClass: string,
+  adultos: number,
 ): Promise<{ precio: number; aerolinea: string; escalas: string } | null> {
   if (MOCK) return null
 
@@ -58,6 +75,8 @@ async function buscarUnaCombinacion(
           arrival_id: destinoIATA,
           outbound_date: ida,
           return_date: vuelta,
+          travel_class: travelClass,
+          adults: adultos,
           currency: 'USD',
         },
         headers: {
@@ -69,7 +88,10 @@ async function buscarUnaCombinacion(
       const data = r.data
 
       const topFlights = data?.data?.itineraries?.topFlights
-      if (!Array.isArray(topFlights) || topFlights.length === 0) return null
+      if (!Array.isArray(topFlights) || topFlights.length === 0) {
+        console.warn(`[flights] ${ida}→${vuelta}: sin topFlights. status=${JSON.stringify(data?.status)} message=${JSON.stringify(data?.message)}`)
+        return null
+      }
 
       const f = topFlights[0]
       const precio = f.price
@@ -105,7 +127,11 @@ async function buscarUnaCombinacion(
  * Hasta 5 opciones comparativas alrededor de las fechas pedidas.
  */
 export async function buscarComparativa(datos: ParamsBusqueda): Promise<OpcionVuelo[]> {
+  console.log(`[flights] buscarComparativa MOCK=${MOCK} host=${HOST} ${datos.origenIATA}→${datos.destinoIATA} ${datos.fechaIda}/${datos.fechaVuelta} clase=${datos.clase ?? 'ECONOMICA'}`)
   if (MOCK) return mockComparativa(datos)
+
+  const travelClass = travelClassDe(datos.clase)
+  const adultos = datos.adultos && datos.adultos > 0 ? datos.adultos : 1
 
   const offsets = [-2, -1, 0, 1, 2]
   const promesas = offsets.map(async (off) => {
@@ -114,7 +140,7 @@ export async function buscarComparativa(datos: ParamsBusqueda): Promise<OpcionVu
     const n = noches(nuevaIda, nuevaVuelta)
     if (n <= 0) return null
 
-    const r = await buscarUnaCombinacion(datos.origenIATA, datos.destinoIATA, nuevaIda, nuevaVuelta)
+    const r = await buscarUnaCombinacion(datos.origenIATA, datos.destinoIATA, nuevaIda, nuevaVuelta, travelClass, adultos)
     if (!r) return null
 
     const etiqueta =

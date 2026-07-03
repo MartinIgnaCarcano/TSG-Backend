@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
 import { validateBody } from '../middleware/validate'
 import { crearCotizacionSchema, actualizarCotizacionSchema } from '../schemas/cotizacion.schema'
@@ -11,7 +11,7 @@ const router = Router()
 //   ?estado=PENDIENTE
 //   ?vigentes=true   → solo PENDIENTE/ENVIADA, no vencidas (usado por Flujo 2 Smart Pricing)
 //   ?page&?pageSize  → opcional; sin esto, devuelve array plano (compat n8n/front)
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const viajeId = req.query.viajeId as string | undefined
     const estado = req.query.estado as string | undefined
@@ -50,13 +50,13 @@ router.get('/', async (req: Request, res: Response) => {
       total,
       totalPages: Math.ceil(total / paginacion.pageSize),
     })
-  } catch (e: any) {
-    res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // GET /api/cotizaciones/:id
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const cotizacion = await prisma.cotizacion.findUnique({
       where: { id: req.params.id as string },
@@ -72,15 +72,15 @@ router.get('/:id', async (req: Request, res: Response) => {
     })
     if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada' })
     res.json(cotizacion)
-  } catch (e: any) {
-    res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // POST /api/cotizaciones
-router.post('/', validateBody(crearCotizacionSchema), async (req: Request, res: Response) => {
+router.post('/', validateBody(crearCotizacionSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { viajeId, clienteId, fechaVencimiento, moneda, precioIda, precioVuelta, precioIdaYVuelta, impuestos, observaciones, ofertaExternaID } = req.body
+    const { viajeId, clienteId, fechaVencimiento, moneda, precioIda, precioVuelta, precioIdaYVuelta, impuestos, observaciones, ofertaExternaID, clase, cantidadValijas, extras, precioExtras } = req.body
     const numeroCotizacion = `COT-${Date.now()}`
     const cotizacion = await prisma.cotizacion.create({
       data: {
@@ -95,18 +95,23 @@ router.post('/', validateBody(crearCotizacionSchema), async (req: Request, res: 
         impuestos,
         observaciones,
         ofertaExternaID,
+        // Producto aéreo (usa defaults del schema si no vienen)
+        ...(clase !== undefined && { clase }),
+        ...(cantidadValijas !== undefined && { cantidadValijas }),
+        ...(extras !== undefined && { extras: extras || null }),
+        ...(precioExtras !== undefined && { precioExtras: precioExtras ?? null }),
       },
     })
     res.status(201).json(cotizacion)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // PUT /api/cotizaciones/:id
-router.put('/:id', validateBody(actualizarCotizacionSchema), async (req: Request, res: Response) => {
+router.put('/:id', validateBody(actualizarCotizacionSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { fechaVencimiento, moneda, precioIda, precioVuelta, precioIdaYVuelta, impuestos, observaciones, estado, ofertaExternaID, hotelId, noches, precioHotel } = req.body
+    const { fechaVencimiento, moneda, precioIda, precioVuelta, precioIdaYVuelta, impuestos, observaciones, estado, ofertaExternaID, hotelId, noches, precioHotel, clase, cantidadValijas, extras, precioExtras } = req.body
     const cotizacion = await prisma.cotizacion.update({
       where: { id: req.params.id as string },
       data: {
@@ -123,25 +128,30 @@ router.put('/:id', validateBody(actualizarCotizacionSchema), async (req: Request
         ...(hotelId !== undefined && { hotelId: hotelId || null }),
         ...(noches !== undefined && { noches: noches || null }),
         ...(precioHotel !== undefined && { precioHotel: precioHotel || null }),
+        // Producto aéreo
+        ...(clase !== undefined && { clase }),
+        ...(cantidadValijas !== undefined && { cantidadValijas }),
+        ...(extras !== undefined && { extras: extras || null }),
+        ...(precioExtras !== undefined && { precioExtras: precioExtras ?? null }),
       },
       include: { hotel: true } as any,
     })
     res.json(cotizacion)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // DELETE lógico /api/cotizaciones/:id
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const cotizacion = await prisma.cotizacion.update({
       where: { id: req.params.id as string },
       data: { baja: new Date() },
     })
     res.json(cotizacion)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 

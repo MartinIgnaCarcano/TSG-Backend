@@ -24,6 +24,15 @@
     {
       "parameters": {
         "url": "=http://localhost:3001/api/recordatorios?pendientes=true&fecha={{ $now.format('yyyy-MM-dd') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $vars.N8N_API_KEY }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 15000
         }
@@ -38,23 +47,20 @@
       ]
     },
     {
-      "parameters": {
-        "fieldToSplitOut": "data",
-        "include": "allOtherFields",
-        "options": {}
-      },
+      "parameters": {},
       "id": "3aaa0003-0000-0000-0000-000000000003",
       "name": "Uno por uno",
-      "type": "n8n-nodes-base.splitOut",
+      "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
         -320,
         400
-      ]
+      ],
+      "notes": "GET /api/recordatorios devuelve un array plano (sin envolver en {data:[...]}); el HTTP Request de n8n ya separa cada elemento del array en un item, así que acá no hace falta un SplitOut — solo se mantiene el nombre del nodo porque el Code de abajo lo referencia con $('Uno por uno')."
     },
     {
       "parameters": {
-        "jsCode": "// Armar el mensaje según el tipo de recordatorio\nconst r = $json;\nconst rsv = r.reserva || {};\nconst cli = rsv.cliente || {};\nconst v = rsv.cotizacion?.viaje || {};\nconst ruta = (v.origen?.codigoIATA && v.destino?.codigoIATA)\n  ? `${v.origen.codigoIATA} → ${v.destino.codigoIATA}`\n  : 'tu viaje';\nconst fechaViaje = rsv.fechaViaje ? new Date(rsv.fechaViaje).toLocaleDateString('es-AR') : '';\nconst saldoPendiente = (Number(rsv.montoFinal) - Number(rsv.saldoPagado)).toFixed(2);\nconst tel = (cli.telefono || '').replace(/^whatsapp:/, '');\n\nlet mensaje = '';\n\nswitch (r.tipo) {\n  case 'PAGO_SALDO':\n    mensaje = `🧾 *Recordatorio de pago — STG*\\n\\nHola ${cli.nombre}, te recordamos que tenés un saldo pendiente de *USD ${saldoPendiente}* para tu reserva ${rsv.numeroReserva} (${ruta} - ${fechaViaje}).\\n\\nPara evitar la cancelación automática, regularizá el pago hasta 7 días antes del viaje. Cualquier consulta, escribinos por acá. ✈️`;\n    break;\n  case 'CHECK_IN':\n    mensaje = `✈️ *¡Mañana viajás!*\\n\\nHola ${cli.nombre}, recordá hacer el check-in online de tu vuelo de mañana (${ruta} - ${fechaViaje}). La mayoría de las aerolíneas lo habilitan 24-48 horas antes.\\n\\n¡Buen viaje! 🌍`;\n    break;\n  case 'POST_VIAJE':\n    mensaje = `🎉 *¿Qué tal el viaje?*\\n\\nHola ${cli.nombre}, esperamos que la hayas pasado increíble en ${v.destino?.nombre || 'tu destino'}. Nos encantaría saber cómo fue tu experiencia para seguir mejorando.\\n\\n¿Nos dejás un comentario o una calificación? 🙏`;\n    break;\n  default:\n    mensaje = `Hola ${cli.nombre}, te escribimos desde STG sobre tu reserva ${rsv.numeroReserva}.`;\n}\n\nif (!tel) return []; // sin teléfono no podemos avisar\n\nreturn [{ json: { recordatorioId: r.id, tipo: r.tipo, telefono: tel, mensaje, reservaNumero: rsv.numeroReserva } }];"
+        "jsCode": "// Este flujo ahora solo maneja recordatorios por TIEMPO (PAGO_SALDO,\n// CHECK_IN, POST_VIAJE). VOUCHER y CONTRATO se sacaron de acá: se emiten y\n// avisan al instante desde el botón del front (ver Flujo7_DocumentoEmitido,\n// disparado por webhook desde el back apenas se genera el documento) en vez\n// de esperar a este cron de las 9AM.\nconst r = $json;\nconst rsv = r.reserva || {};\nconst cli = rsv.cliente || {};\nconst v = rsv.cotizacion?.viaje || {};\nconst ruta = (v.origen?.codigoIATA && v.destino?.codigoIATA)\n  ? `${v.origen.codigoIATA} → ${v.destino.codigoIATA}`\n  : 'tu viaje';\nconst fechaViaje = rsv.fechaViaje ? new Date(rsv.fechaViaje).toLocaleDateString('es-AR') : '';\nconst saldoPendiente = (Number(rsv.montoFinal) - Number(rsv.saldoPagado)).toFixed(2);\nconst tel = (cli.telefono || '').replace(/^whatsapp:/, '');\n\nlet mensaje = '';\n\nswitch (r.tipo) {\n  case 'PAGO_SALDO':\n    mensaje = `🧾 *Recordatorio de pago — STG*\\n\\nHola ${cli.nombre}, te recordamos que tenés un saldo pendiente de *USD ${saldoPendiente}* para tu reserva ${rsv.numeroReserva} (${ruta} - ${fechaViaje}).\\n\\nPara evitar la cancelación automática, regularizá el pago hasta 7 días antes del viaje. Cualquier consulta, escribinos por acá. ✈️`;\n    break;\n  case 'CHECK_IN':\n    mensaje = `✈️ *¡Mañana viajás!*\\n\\nHola ${cli.nombre}, recordá hacer el check-in online de tu vuelo de mañana (${ruta} - ${fechaViaje}). La mayoría de las aerolíneas lo habilitan 24-48 horas antes.\\n\\n¡Buen viaje! 🌍`;\n    break;\n  case 'POST_VIAJE':\n    mensaje = `🎉 *¿Qué tal el viaje?*\\n\\nHola ${cli.nombre}, esperamos que la hayas pasado increíble en ${v.destino?.nombre || 'tu destino'}. Nos encantaría saber cómo fue tu experiencia para seguir mejorando.\\n\\n¿Nos dejás un comentario o una calificación? 🙏`;\n    break;\n  default:\n    mensaje = `Hola ${cli.nombre}, te escribimos desde STG sobre tu reserva ${rsv.numeroReserva}.`;\n}\n\nif (!tel) return []; // sin teléfono no podemos avisar\n\nreturn [{ json: {\n  recordatorioId: r.id, tipo: r.tipo, telefono: tel, mensaje, reservaNumero: rsv.numeroReserva\n} }];"
       },
       "id": "3aaa0004-0000-0000-0000-000000000004",
       "name": "Armar mensaje según tipo",
@@ -98,6 +104,15 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"resultado\": \"{{ $json.sid ? 'Enviado: ' + $json.sid : 'Error' }}\"\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $vars.N8N_API_KEY }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 10000
         }

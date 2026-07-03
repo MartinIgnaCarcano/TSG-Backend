@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 const moneda = z.string().trim().min(1).max(10)
 const montoNoNegativo = z.coerce.number().nonnegative('debe ser un número >= 0')
+const clase = z.enum(['ECONOMICA', 'PREMIUM_ECONOMICA', 'EJECUTIVA', 'PRIMERA'])
+const cantidadValijas = z.coerce.number().int().nonnegative('debe ser un entero >= 0')
 
 export const crearCotizacionSchema = z.object({
   viajeId: z.string().min(1, 'viajeId es requerido'),
@@ -14,6 +16,11 @@ export const crearCotizacionSchema = z.object({
   impuestos: montoNoNegativo,
   observaciones: z.string().trim().optional().nullable(),
   ofertaExternaID: z.string().trim().optional().nullable(),
+  // Producto aéreo cotizado
+  clase: clase.optional(),
+  cantidadValijas: cantidadValijas.optional(),
+  extras: z.string().trim().optional().nullable(),
+  precioExtras: montoNoNegativo.optional().nullable(),
 })
 
 export const actualizarCotizacionSchema = z.object({
@@ -29,4 +36,9 @@ export const actualizarCotizacionSchema = z.object({
   hotelId: z.string().trim().optional().nullable(),
   noches: z.coerce.number().int().positive().optional().nullable(),
   precioHotel: montoNoNegativo.optional().nullable(),
+  // Producto aéreo cotizado
+  clase: clase.optional(),
+  cantidadValijas: cantidadValijas.optional(),
+  extras: z.string().trim().optional().nullable(),
+  precioExtras: montoNoNegativo.optional().nullable(),
 })

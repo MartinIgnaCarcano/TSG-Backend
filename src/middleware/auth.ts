@@ -24,8 +24,17 @@ const PUBLIC_PATHS: Array<{ method: string; path: string }> = [
   { method: 'POST', path: '/api/admin-users/login' },
 ]
 
+// Fase S3: la descarga de un documento (voucher/contrato) llega por un
+// link de WhatsApp/email al cliente final, que no tiene JWT ni x-api-key.
+// Queda pública porque la protección real es la firma HMAC + vencimiento
+// que valida la propia ruta (ver routes/documentos.ts y lib/documentos.ts).
+const PUBLIC_PATH_PATTERNS: Array<{ method: string; regex: RegExp }> = [
+  { method: 'GET', regex: /^\/api\/documentos\/[^/]+\/descargar$/ },
+]
+
 function isPublic(req: Request): boolean {
-  return PUBLIC_PATHS.some((p) => p.method === req.method && req.path === p.path)
+  if (PUBLIC_PATHS.some((p) => p.method === req.method && req.path === p.path)) return true
+  return PUBLIC_PATH_PATTERNS.some((p) => p.method === req.method && p.regex.test(req.path))
 }
 
 export function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
@@ -41,6 +50,32 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   const authHeader = req.header('authorization')
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Falta autenticación (Bearer token o x-api-key)' })
+  }
+
+  const token = authHeader.slice('Bearer '.length)
+  try {
+    const payload = jwt.verify(token, config.jwtSecret) as { id: number; email: string }
+    req.admin = { id: payload.id, email: payload.email }
+    return next()
+  } catch {
+    return res.status(401).json({ error: 'Token inválido o expirado' })
+  }
+}
+
+// Fase S6: gestionar admins (alta/edición/baja) es una operación
+// privilegiada — un workflow de n8n con la x-api-key filtrada no debería
+// poder crear un admin nuevo. A diferencia de requireAuth (que acepta
+// x-api-key O Bearer), este middleware exige específicamente un Bearer
+// de un admin logueado. Se aplica encima de requireAuth, solo en las
+// rutas de mutación de adminUsers.ts (no en GET ni en /login).
+export function requireAdminBearer(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!config.authEnabled) return next()
+
+  const authHeader = req.header('authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res
+      .status(401)
+      .json({ error: 'Esta operación requiere una sesión de administrador (Bearer token); no acepta x-api-key' })
   }
 
   const token = authHeader.slice('Bearer '.length)

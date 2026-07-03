@@ -1,0 +1,32 @@
+# Análisis de amenazas (STRIDE) — sobre la Figura 5 (arquitectura)
+
+**Fecha:** 2026-07-02
+**Alcance:** componentes de la Figura 5 — Front (React), Backend (`TSG-Backend`: Express + Prisma + Postgres), orquestador n8n (bot WhatsApp), Twilio, LLM (Groq), RapidAPI (Google Flights), SMTP, almacenamiento de documentos.
+
+Convención: cada fila es una amenaza concreta sobre un componente/flujo, con la categoría STRIDE, la mitigación (implementada o planificada) y la fase del plan de seguridad que la cubre. Las amenazas sin mitigación implementada quedan explícitas como **limitación identificada**, no como algo oculto.
+
+| # | Categoría | Amenaza | Componente | Mitigación | Estado |
+|---|---|---|---|---|---|
+| 1 | **S**poofing | Un tercero envía requests a la API haciéndose pasar por n8n o por el front, sin credencial válida | Backend (`/api/*`) | `AUTH_ENABLED` + `x-api-key` (n8n) / Bearer JWT (admins); apagado por decisión consciente en modo demo | Preparado, apagado en demo (Fase S6) |
+| 2 | **S**poofing | Un tercero envía un POST al webhook del bot simulando ser Twilio, para gastar cuota de LLM/API o inyectar mensajes falsos | n8n (webhook `stg-whatsapp`) | Validación de `X-Twilio-Signature` (HMAC-SHA1) al inicio del flujo; sin firma válida, corta con 403 y no continúa | Implementada (Fase S7) |
+| 3 | **S**poofing | Alguien con la URL directa del documento (sin firma) intenta descargarlo | Backend (`/storage/documentos`) | Estático público retirado; solo accesible vía URL firmada con expiración | Implementada (Fase S3) |
+| 4 | **T**ampering | Un cliente HTTP arma un body arbitrario para forzar transiciones de estado inválidas en una reserva | Backend (`reservas.service.ts`) | `TRANSICIONES_VALIDAS` valida cada cambio de estado antes de persistir | Implementada (base del sistema) |
+| 5 | **T**ampering | Condición de carrera: dos requests concurrentes transicionan la misma reserva y una pisa a la otra sin control | Backend (`transicionarEstado`) | `updateMany` condicionado por `estado` actual (optimistic concurrency); si `count === 0`, 409 | Implementada (Fase S4) |
+| 6 | **T**ampering | Un pago se anula pero `saldoPagado`/estado de la reserva no se recalculan, quedando inconsistentes | Backend (`DELETE /api/pagos/:id`) | Recalculo de `saldoPagado` y transición inversa (PAGADA→SEÑADA / →EN_PROCESO) dentro de una `$transaction` | Implementada (Fase S5) |
+| 7 | **T**ampering | El link firmado de un documento se altera (id o `exp` distintos) para acceder a otro archivo o extender el vencimiento | Backend (`/api/documentos/:id/descargar`) | Firma HMAC-SHA256 sobre `id+exp`, comparación en tiempo constante; cualquier alteración invalida la firma | Implementada (Fase S3) |
+| 8 | **R**epudiation | No queda registro de quién generó/emitió un voucher o contrato con datos de un pasajero | Backend (`DocumentoGenerado`) | Se persiste el hash SHA-256 del contenido y el registro de emisión asociado a la reserva | Implementada (base del sistema) |
+| 9 | **R**epudiation | Un admin niega haber creado/editado otro admin | Backend (`/api/admin-users`) | Con auth encendida, la creación de admins exige sesión Bearer (no `x-api-key`), atando la acción a un login concreto | Preparado, apagado en demo (Fase S6) |
+| 10 | **I**nformation Disclosure | Un error 500 filtra detalles internos de Prisma (nombre de tabla/columna) en la respuesta HTTP | Backend (todas las rutas) | Handler global mapea errores conocidos (P2002/P2025/P2003/Zod) a mensajes genéricos; el resto devuelve 500 sin detalle, logueado solo en servidor | Implementada (Fase S1) |
+| 11 | **I**nformation Disclosure | El nodo "Crear cotización en Back" baja toda la tabla de clientes para buscar uno por email | n8n / Backend (`GET /api/clientes`) | Filtro server-side `?email=` (`where` con `mode: insensitive`); el nodo ya no trae más que el cliente buscado | Implementada (Fase S7) |
+| 12 | **I**nformation Disclosure | Vouchers/contratos (DNI, fecha de nacimiento) accesibles indefinidamente por cualquiera con el link | Backend (almacenamiento de documentos) | URL de capacidad firmada con TTL (72 h por defecto); vencida o alterada, 403/410 | Implementada (Fase S3) |
+| 13 | **I**nformation Disclosure | Prompt injection: el usuario le pide al AI Agent que revele su system prompt o instrucciones internas | n8n (AI Agent Vendedor) | Bloque explícito en el system prompt: nunca revelar/parafrasear las instrucciones, ni con trucos de "modo desarrollador" | Implementada (Fase S7) |
+| 14 | **D**enial of Service | Fuerza bruta sobre el login de admin | Backend (`/api/admin-users/login`) | `loginRateLimit` (middleware dedicado) | Implementada (base del sistema) |
+| 15 | **D**enial of Service | Un actor sin firma válida satura el webhook del bot con requests, consumiendo cuota de LLM/RapidAPI | n8n (webhook `stg-whatsapp`) | Corte temprano (403) antes de llegar al AI Agent o a Google Flights, si la firma Twilio no valida | Implementada (Fase S7) — mitiga, no reemplaza un rate limit dedicado a nivel de infraestructura (fuera de alcance de esta fase) |
+| 16 | **E**levation of Privilege | Un workflow de n8n filtrado (o su `x-api-key`) se usa para crear un admin nuevo y tomar control del panel | Backend (`POST /api/admin-users`) | La ruta deja de aceptar `x-api-key`; exige `requireAdminBearer` (sesión de admin logueado) | Preparado, apagado en demo (Fase S6) |
+| 17 | **E**levation of Privilege | El usuario le pide al bot que "actúe como" otro rol o ejecute tareas fuera del dominio de viajes (código, instrucciones generales) | n8n (AI Agent Vendedor) | Reglas de seguridad en el system prompt: rechaza pedidos fuera de dominio sin ejecutarlos ni discutirlos, nunca cambia de rol | Implementada (Fase S7) |
+
+## Limitaciones identificadas (explícitas para la defensa)
+
+- **Auth apagada en demo** (filas 1, 9, 16): `AUTH_ENABLED=false` es una decisión consciente para no complicar la demo en vivo; el código y el smoke test (`docs/S6_smoke_test_auth.md`) demuestran que encenderla no rompe nada.
+- **Sin rate limit dedicado en el webhook del bot** (fila 15): la validación de firma corta actores no autorizados, pero no hay un límite de requests/segundo específico para ese endpoint — quedaría para una iteración posterior si el bot pasa a producción real.
+- **Revocación de documentos solo por vencimiento** (ADR-005): un link firmado filtrado sigue siendo válido hasta que expira; no hay una lista de revocación activa.

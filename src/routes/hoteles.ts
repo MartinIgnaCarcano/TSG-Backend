@@ -2,7 +2,7 @@
 // /api/hoteles — CRUD del catálogo de hoteles
 // Usado por el panel admin y por el Flujo 6 (buscar hoteles)
 // =====================================================
-import { Router, Request, Response } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
 
 const router = Router()
@@ -12,7 +12,7 @@ const router = Router()
 //   ?destinoIATA=MAD      → filtra por IATA
 //   ?estrellas=4          → filtra por estrellas
 //   ?max=100              → precio máx por noche
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const destinoId = req.query.destinoId as string | undefined
     const destinoIATA = (req.query.destinoIATA as string | undefined)?.toUpperCase()
@@ -38,13 +38,13 @@ router.get('/', async (req: Request, res: Response) => {
 
     if (max) hoteles = hoteles.filter((h) => Number(h.precioNoche) <= max)
     res.json(hoteles)
-  } catch (e: any) {
-    res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // GET /api/hoteles/:id
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const hotel = await prisma.hotel.findUnique({
       where: { id: req.params.id as string },
@@ -52,13 +52,13 @@ router.get('/:id', async (req: Request, res: Response) => {
     })
     if (!hotel) return res.status(404).json({ error: 'Hotel no encontrado' })
     res.json(hotel)
-  } catch (e: any) {
-    res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // POST /api/hoteles
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const {
       nombre, destinoId, destinoIATA,
@@ -96,13 +96,13 @@ router.post('/', async (req: Request, res: Response) => {
       include: { destino: true },
     })
     res.status(201).json(hotel)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // PUT /api/hoteles/:id
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const {
       nombre, destinoId, destinoIATA,
@@ -135,26 +135,26 @@ router.put('/:id', async (req: Request, res: Response) => {
       include: { destino: true },
     })
     res.json(hotel)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // DELETE lógico /api/hoteles/:id
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const hotel = await prisma.hotel.update({
       where: { id: req.params.id as string },
       data: { baja: new Date() },
     })
     res.json(hotel)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // POST /api/hoteles/bulk — usado por el Flujo 6, recibe array y hace upsert por (nombre + destinoId)
-router.post('/bulk', async (req: Request, res: Response) => {
+router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const items: any[] = Array.isArray(req.body) ? req.body : (req.body.items || [])
     if (!items.length) return res.status(400).json({ error: 'Array vacío' })
@@ -209,8 +209,8 @@ router.post('/bulk', async (req: Request, res: Response) => {
       }
     }
     res.json({ ok: true, creados, actualizados, total: items.length })
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 

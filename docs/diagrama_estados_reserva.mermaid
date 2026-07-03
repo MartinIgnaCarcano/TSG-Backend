@@ -1,0 +1,23 @@
+%% Fase E — máquina de estados de Reserva (STG)
+%% Centralizada en src/services/reservas.service.ts -> transicionarEstado()
+stateDiagram-v2
+    [*] --> EN_PROCESO
+
+    EN_PROCESO --> SEÑADA: registrar pago parcial (seña)
+    EN_PROCESO --> PAGADA: registrar pago total
+    EN_PROCESO --> CANCELADA: cancelar
+
+    SEÑADA --> PAGADA: saldoPendiente <= 0
+    SEÑADA --> CANCELADA: cancelar
+
+    PAGADA --> DOCUMENTADA: emitir voucher/contrato
+    PAGADA --> CANCELADA: cancelar
+
+    DOCUMENTADA --> EN_VIAJE: inicia fechaViaje
+    DOCUMENTADA --> CANCELADA: cancelar
+
+    EN_VIAJE --> FINALIZADA: termina fechaRegreso
+    EN_VIAJE --> CANCELADA: cancelar
+
+    FINALIZADA --> [*]
+    CANCELADA --> [*]

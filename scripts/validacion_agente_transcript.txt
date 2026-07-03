@@ -1,0 +1,175 @@
+Validación del agente — modelo llama-3.3-70b-versatile (temp 0.2) — fecha 2026-06-26
+============================================================
+
+[1.1] Escenario 1
+  👤 Quiero viajar de Mendoza a Madrid del 10 de agosto al 20 de agosto
+  🤖 (1215 ms) Genial, parece que ya tenemos algunos datos importantes. Me confirmás que el origen es Mendoza, el destino es Madrid, la fecha de ida es el 10 de agosto y la fecha de vuelta es el 20 de agosto, ¿es eso correcto? Con esos
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (618 ms) { "origenNombre": "Mendoza", "destinoNombre": "Madrid", "origenIATA": "MDZ", "destinoIATA": "MAD", "fechaIda": "2026-08-10", "fechaVuelta": "2026-08-20" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[1.2] Escenario 1
+  👤 Busco vuelos de Córdoba a Miami, ida el 5 de septiembre y vuelta el 15 de septiembre
+  🤖 (976 ms) Genial, tenemos algunos datos importantes. Ya sé que querés viajar desde Córdoba hasta Miami, y que tus fechas de viaje son el 5 de septiembre para la ida y el 15 de septiembre para la vuelta. Para confirmar, solo quiero
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (576 ms) { "origenNombre": "Córdoba", "destinoNombre": "Miami", "origenIATA": "COR", "destinoIATA": "MIA", "fechaIda": "2026-09-05", "fechaVuelta": "2026-09-15" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[1.3] Escenario 1
+  👤 Necesito ir de Mendoza a Cancún del 20 al 30 de diciembre
+  🤖 (864 ms) Genial, ya tengo algunos datos. Me dijiste que querés viajar desde Mendoza hasta Cancún, y que tus fechas serían del 20 al 30 de diciembre. Entonces, para confirmar: el origen es Mendoza, el destino es Cancún, la fecha d
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (581 ms) { "origenNombre": "Mendoza", "destinoNombre": "Cancún", "origenIATA": "MDZ", "destinoIATA": "CUN", "fechaIda": "2026-12-20", "fechaVuelta": "2026-12-30" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[1.4] Escenario 1
+  👤 Vuelo de Córdoba a Barcelona, salgo el 1 de noviembre y vuelvo el 10 de noviembre
+  🤖 (858 ms) Genial, tenemos un buen comienzo. Entiendo que el origen es Córdoba, el destino es Barcelona, la fecha de ida es el 1 de noviembre y la fecha de vuelta es el 10 de noviembre. Así que, para confirmar: - Origen: Córdoba - 
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (693 ms) { "origenNombre": "Córdoba", "destinoNombre": "Barcelona", "origenIATA": "COR", "destinoIATA": "BCN", "fechaIda": "2026-11-01", "fechaVuelta": "2026-11-10" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[1.5] Escenario 1
+  👤 Quiero ir de Mendoza a Río de Janeiro del 2 al 12 de octubre
+  🤖 (918 ms) Genial, ya tengo algunos datos. Me dijiste que querés viajar desde Mendoza hasta Río de Janeiro, y que tus fechas serían del 2 al 12 de octubre. Entonces, para confirmar, tengo: - Origen: Mendoza - Destino: Río de Janeir
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (624 ms) { "origenNombre": "Mendoza", "destinoNombre": "Río de Janeiro", "origenIATA": "MDZ", "destinoIATA": "GIG", "fechaIda": "2026-10-02", "fechaVuelta": "2026-10-12" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[2.1] Escenario 2
+  👤 Hola, quiero viajar a Madrid
+  🤖 (869 ms) Genial elección! Madrid es una ciudad increíble. Entiendo que tu destino es Madrid, pero todavía me faltan algunos datos para poder ayudarte a planificar tu viaje. ¿Podrías decirme desde dónde vas a viajar (origen), y ta
+  👤 Desde Mendoza
+  🤖 (758 ms) Mendoza es un hermoso lugar. Entonces, hasta ahora tengo que tu origen es Mendoza y tu destino es Madrid. Me faltan las fechas de viaje. ¿Cuándo te gustaría viajar a Madrid y cuándo regresar a Mendoza? ¿Podrías decirme l
+  👤 Del 10 al 20 de agosto
+  🤖 (800 ms) Excelente, ya tengo las fechas. Entonces, para confirmar: tu origen es Mendoza, tu destino es Madrid, y tus fechas de viaje son del 10 de agosto al 20 de agosto. Con esta información, puedo empezar a ayudarte a planifica
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[2.2] Escenario 2
+  👤 Quiero un vuelo a Miami
+  🤖 (765 ms) Genial, un vuelo a Miami suena como una excelente idea. Entonces, hasta ahora tengo que el destino es Miami. Me faltan algunos datos más para poder ayudarte a encontrar el vuelo perfecto. ¿Podrías decirme desde dónde par
+  👤 Salgo de Córdoba
+  🤖 (800 ms) Excelente, entonces tenemos Córdoba como origen y Miami como destino. Me falta saber las fechas de viaje. ¿Cuándo pensabas ir a Miami y cuándo regresarías? ¿Tienes fechas específicas en mente o estás buscando opciones pa
+  👤 Ida 5 de septiembre, vuelta 15 de septiembre
+  🤖 (587 ms) { "origenNombre": "Córdoba", "destinoNombre": "Miami", "origenIATA": "COR", "destinoIATA": "MIA", "fechaIda": "2026-09-05", "fechaVuelta": "2026-09-15" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[2.3] Escenario 2
+  👤 Necesito viajar en octubre
+  🤖 (1013 ms) Genial, octubre es un mes hermoso para viajar. Me parece que ya tenemos una pista sobre la fecha de ida, aunque todavía no tengo claro el día exacto. Para poder ayudarte mejor, necesitaría saber un poco más sobre tu viaj
+  👤 De Mendoza a Río de Janeiro
+  🤖 (1056 ms) Mendoza y Río de Janeiro, qué lindo viaje te espera. Entonces, hasta ahora tengo anotado que el origen es Mendoza y el destino es Río de Janeiro, y que vas a viajar en octubre. Me faltan las fechas exactas de ida y vuelt
+  👤 Del 2 al 12 de octubre
+  🤖 (759 ms) Genial, ahora tengo todos los datos que necesito. Entonces, para confirmar, vas a viajar desde Mendoza a Río de Janeiro del 2 de octubre al 12 de octubre de 2026. { "origenNombre": "Mendoza", "destinoNombre": "Río de Jan
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[2.4] Escenario 2
+  👤 Quiero ir a Barcelona
+  🤖 (601 ms) Genial elección! Barcelona es una ciudad increíble. Entonces, hasta ahora tengo que tu destino es Barcelona. Me faltan algunos datos para poder ayudarte a encontrar el mejor vuelo. ¿Podrías decirme desde dónde vas a viaj
+  👤 Desde Córdoba, del 1 al 10 de noviembre
+  🤖 (820 ms) Excelente, ahora tengo más información. Entonces, para recapitular, tu origen es Córdoba, tu destino es Barcelona, y estás pensando en viajar desde el 1 de noviembre hasta el 10 de noviembre. Me parece que ya tengo todos
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (514 ms) { "origenNombre": "Córdoba", "destinoNombre": "Barcelona", "origenIATA": "COR", "destinoIATA": "BCN", "fechaIda": "2026-11-01", "fechaVuelta": "2026-11-10" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[2.5] Escenario 2
+  👤 Vuelos a Cancún por favor
+  🤖 (810 ms) Genial! Me alegra que estés pensando en viajar a Cancún. Entiendo que el destino es Cancún, México. Para poder ayudarte a encontrar el mejor vuelo, necesito saber un poco más de información. ¿Podrías decirme desde dónde 
+  👤 Desde Mendoza
+  🤖 (919 ms) Mendoza es un hermoso lugar. Entonces, hasta ahora tengo que el origen es Mendoza y el destino es Cancún. Me falta saber las fechas de tu viaje. ¿Cuándo pensás ir a Cancún y cuándo regresar a Mendoza? ¿Podrías darme las 
+  👤 Del 20 al 30 de diciembre
+  🤖 (735 ms) Excelente elección de fechas. Entonces, para confirmar, el origen es Mendoza, el destino es Cancún, la fecha de ida es el 20 de diciembre de 2026 y la fecha de vuelta es el 30 de diciembre de 2026. Con esta información, 
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[3.1] Escenario 3
+  👤 Quiero ir de Mendosa a Madri del 10 al 20 de agosto
+  🤖 (1087 ms) Genial, parece que estás planeando un viaje emocionante. Entiendo que el origen es Mendoza, el destino es Madrid, la fecha de ida es el 10 de agosto y la fecha de vuelta es el 20 de agosto. ¿Es correcto? Con esa informac
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[3.2] Escenario 3
+  👤 Vuelo de Cordova a Miamy, del 5 al 15 de septiembre
+  🤖 (877 ms) Genial, gracias por proporcionar esos datos. Entiendo que el origen es Córdoba, el destino es Miami, la fecha de ida es el 5 de septiembre y la fecha de vuelta es el 15 de septiembre. Así que, para confirmar: - Origen: C
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (774 ms) { "origenNombre": "Córdoba", "destinoNombre": "Miami", "origenIATA": "COR", "destinoIATA": "MIA", "fechaIda": "2026-09-05", "fechaVuelta": "2026-09-15" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[3.3] Escenario 3
+  👤 Nesesito viajar de Mensoza a Barzelona del 1 al 10 de noviembre
+  🤖 (906 ms) Genial, parece que estás planeando un viaje emocionante. Entiendo que querés viajar desde Mendoza (MDZ) a Barcelona (BCN) del 1 al 10 de noviembre. Solo para confirmar, ¿es correcto que tu fecha de ida es el 1 de noviemb
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (498 ms) { "origenNombre": "Mendoza", "destinoNombre": "Barcelona", "origenIATA": "MDZ", "destinoIATA": "BCN", "fechaIda": "2026-11-01", "fechaVuelta": "2026-11-10" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[3.4] Escenario 3
+  👤 Busco vuelo de Cordoba a Cancun del 20 al 30 de diciembre
+  🤖 (865 ms) Genial, ya tengo algunos datos. Me dijiste que el origen es Córdoba, el destino es Cancún, la fecha de ida es el 20 de diciembre y la fecha de vuelta es el 30 de diciembre. ¿Es correcto? Con esa info, puedo empezar a bus
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (603 ms) { "origenNombre": "Córdoba", "destinoNombre": "Cancún", "origenIATA": "COR", "destinoIATA": "CUN", "fechaIda": "2026-12-20", "fechaVuelta": "2026-12-30" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[4.1] Escenario 4
+  👤 Quiero viajar de Mendoza a Buenos Aires del 10 al 20 de agosto
+  🤖 (786 ms) Genial, parece que estás planeando un viaje interesante. Entiendo que el origen es Mendoza, el destino es Buenos Aires, la fecha de ida es el 10 de agosto y la fecha de vuelta es el 20 de agosto. ¿Quieres viajar al Aerop
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[4.2] Escenario 4
+  👤 Quiero viajar de Buenos Aires a Madrid del 5 al 15 de septiembre
+  🤖 (990 ms) Genial, ya tengo algunos datos. Me confirmaste que el origen es Buenos Aires, el destino es Madrid, la fecha de ida es el 5 de septiembre y la fecha de vuelta es el 15 de septiembre. ¿Te gustaría viajar desde el Aeroparq
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[4.3] Escenario 4
+  👤 Vuelo de Buenos Aires a Miami del 1 al 10 de noviembre
+  🤖 (838 ms) Genial, gracias por proporcionar esa información. Entiendo que el origen es Buenos Aires, el destino es Miami, la fecha de ida es el 1 de noviembre y la fecha de vuelta es el 10 de noviembre. En el caso de Buenos Aires, 
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[4.4] Escenario 4
+  👤 Necesito ir de Córdoba a Buenos Aires del 20 al 30 de diciembre
+  🤖 (855 ms) Genial, ya tengo algunos datos. Entiendo que el origen es Córdoba, el destino es Buenos Aires, la fecha de ida es el 20 de diciembre y la fecha de vuelta es el 30 de diciembre. ¿Podrías confirmarme si te refieres a Aerop
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[5.1] Escenario 5
+  👤 Quiero viajar de Mendoza a Madrid del 10 al 20 de agosto
+  🤖 (862 ms) Genial, parece que ya tengo algunos datos. Me confirmaste que el origen es Mendoza, el destino es Madrid, la fecha de ida es el 10 de agosto y la fecha de vuelta es el 20 de agosto. ¿Es correcto? Con estos datos, puedo p
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (626 ms) { "origenNombre": "Mendoza", "destinoNombre": "Madrid", "origenIATA": "MDZ", "destinoIATA": "MAD", "fechaIda": "2026-08-10", "fechaVuelta": "2026-08-20" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[5.2] Escenario 5
+  👤 Quiero viajar de Córdoba a Miami del 5 al 15 de septiembre
+  🤖 (644 ms) Genial, parece que estás planeando un viaje emocionante. Entiendo que el origen es Córdoba, el destino es Miami, la fecha de ida es el 5 de septiembre y la fecha de vuelta es el 15 de septiembre. ¿Es eso correcto?
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (637 ms) { "origenNombre": "Córdoba", "destinoNombre": "Miami", "origenIATA": "COR", "destinoIATA": "MIA", "fechaIda": "2026-09-05", "fechaVuelta": "2026-09-15" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[5.3] Escenario 5
+  👤 Quiero viajar de Mendoza a Cancún del 20 al 30 de diciembre
+  🤖 (945 ms) Genial, parece que ya tenemos algunos datos importantes. Me confirmás que el origen es Mendoza, el destino es Cancún, la fecha de ida es el 20 de diciembre y la fecha de vuelta es el 30 de diciembre. ¿Es eso correcto?
+  👤 Sí, es correcto. Buscá los vuelos por favor.
+  🤖 (630 ms) { "origenNombre": "Mendoza", "destinoNombre": "Cancún", "origenIATA": "MDZ", "destinoIATA": "CUN", "fechaIda": "2026-12-20", "fechaVuelta": "2026-12-30" }
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[6.1] Escenario 6
+  👤 ¿Cuál es la capital de Francia?
+  🤖 (605 ms) La capital de Francia es París. Pero, ¿estás pensando en viajar a París? Me encantaría ayudarte a planificar tu viaje. Para empezar, ¿podrías decirme desde dónde partirías? ¿Cuál sería el origen de tu viaje?
+  ➜ Veredicto automático: ✅ ÉXITO
+
+[6.2] Escenario 6
+  👤 Contame un chiste
+  🤖 (754 ms) Che, te cuento uno: ¿Por qué el avión fue al doctor? ¡Porque tenía miedo de volar! Jajaja, espero que te haya hecho reír un poco. Pero en serio, ¿estás pensando en viajar a algún lugar? Me encantaría ayudarte a encontrar
+  ➜ Veredicto automático: ✅ ÉXITO
+
+============================================================
+RESULTADOS POR ESCENARIO (sobre diálogos evaluados)
+  Escenario 1: 5/5 (100%)
+  Escenario 2: 5/5 (100%)
+  Escenario 3: 4/4 (100%)
+  Escenario 4: 4/4 (100%)
+  Escenario 5: 3/3 (100%)
+  Escenario 6: 2/2 (100%)
+
+============================================================
+TASA DE ÉXITO: 23/23 evaluados = 100.0%
+Latencia de inferencia LLM (Escenario 5): 626 ms, 637 ms, 630 ms  | mediana 630 ms
+
+(Recordá: esto mide la extracción de entidades. La latencia de extremo a
+ extremo de §5.2 incluye además la búsqueda de vuelos —medila aparte—.)

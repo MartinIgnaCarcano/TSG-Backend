@@ -1,10 +1,10 @@
-import { Router, Request, Response } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
 
 const router = Router()
 
 // GET /api/viajes
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const viajes = await prisma.viaje.findMany({
       where: { baja: null },
@@ -17,13 +17,13 @@ router.get('/', async (req: Request, res: Response) => {
       orderBy: { alta: 'asc' },
     })
     res.json(viajes)
-  } catch (e: any) {
-    res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // GET /api/viajes/:id
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const viaje = await prisma.viaje.findUnique({
       where: { id: req.params.id as string },
@@ -36,13 +36,13 @@ router.get('/:id', async (req: Request, res: Response) => {
     })
     if (!viaje) return res.status(404).json({ error: 'Viaje no encontrado' })
     res.json(viaje)
-  } catch (e: any) {
-    res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // POST /api/viajes
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { origenId, destinoId, tieneEscalas, descripcion, tramos } = req.body
     const viaje = await prisma.viaje.create({
@@ -73,13 +73,13 @@ router.post('/', async (req: Request, res: Response) => {
       },
     })
     res.status(201).json(viaje)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // PUT /api/viajes/:id
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { origenId, destinoId, tieneEscalas, descripcion } = req.body
     const viaje = await prisma.viaje.update({
@@ -87,13 +87,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       data: { origenId, destinoId, tieneEscalas, descripcion },
     })
     res.json(viaje)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // DELETE lógico /api/viajes/:id  (baja también los tramos y cotizaciones)
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const [, , viaje] = await prisma.$transaction([
       prisma.tramo.updateMany({
@@ -110,8 +110,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
       }),
     ])
     res.json(viaje)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 

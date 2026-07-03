@@ -4,19 +4,21 @@
 // con spread de 5 fechas) pero expuesta como endpoint JSON
 // para que el front la pueda consumir.
 // =====================================================
-import { Router, Request, Response } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { buscarComparativa } from '../lib/flights'
 
 const router = Router()
 
 /**
  * POST /api/calculadora/buscar
- * Body: { origenIATA, destinoIATA, fechaIda, fechaVuelta }
+ * Body: { origenIATA, destinoIATA, fechaIda, fechaVuelta, clase?, adultos? }
  * Respuesta: { opciones: OpcionVuelo[] }
  */
-router.post('/buscar', async (req: Request, res: Response) => {
+router.post('/buscar', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { origenIATA, destinoIATA, fechaIda, fechaVuelta } = req.body
+    const { origenIATA, destinoIATA, fechaIda, fechaVuelta, clase, adultos } = req.body
+    console.log('[calculadora] ▶ request recibido:', { origenIATA, destinoIATA, fechaIda, fechaVuelta, clase, adultos })
+    const CLASES_VALIDAS = ['ECONOMICA', 'PREMIUM_ECONOMICA', 'EJECUTIVA', 'PRIMERA']
 
     // Validaciones básicas
     if (!origenIATA || !destinoIATA) {
@@ -42,6 +44,11 @@ router.post('/buscar', async (req: Request, res: Response) => {
         error: 'Las fechas deben tener formato YYYY-MM-DD',
       })
     }
+    if (clase !== undefined && !CLASES_VALIDAS.includes(clase)) {
+      return res.status(400).json({
+        error: `clase inválida. Valores válidos: ${CLASES_VALIDAS.join(', ')}`,
+      })
+    }
     if (new Date(fechaVuelta) <= new Date(fechaIda)) {
       return res.status(400).json({
         error: 'La fecha de vuelta tiene que ser posterior a la de ida',
@@ -53,20 +60,23 @@ router.post('/buscar', async (req: Request, res: Response) => {
       destinoIATA: String(destinoIATA).toUpperCase(),
       fechaIda,
       fechaVuelta,
+      clase,
+      adultos: adultos ? Number(adultos) : undefined,
     })
 
+    console.log(`[calculadora] ◀ devolviendo ${opciones.length} opciones`)
     return res.json({
       ok: true,
       origenIATA: String(origenIATA).toUpperCase(),
       destinoIATA: String(destinoIATA).toUpperCase(),
+      clase: clase || 'ECONOMICA',
+      adultos: adultos ? Number(adultos) : 1,
       total: opciones.length,
       opciones,
     })
-  } catch (e: any) {
-    console.error('[calculadora] error:', e)
-    return res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 export default router
-

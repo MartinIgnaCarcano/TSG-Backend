@@ -1,15 +1,16 @@
-import { Router, Request, Response } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import { config } from '../config'
 import { loginRateLimit } from '../middleware/loginRateLimit'
+import { requireAdminBearer } from '../middleware/auth'
 
 const router = Router()
 const SALT_ROUNDS = 10
 
 // GET /api/admin-users
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admins = await prisma.adminUser.findMany({
       where: { baja: null },
@@ -17,13 +18,13 @@ router.get('/', async (req: Request, res: Response) => {
       // ↑ nunca devolvemos password_hash
     })
     res.json(admins)
-  } catch (e: any) {
-    res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // GET /api/admin-users/:id
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = await prisma.adminUser.findUnique({
       where: { id: Number(req.params.id) },
@@ -31,13 +32,16 @@ router.get('/:id', async (req: Request, res: Response) => {
     })
     if (!admin) return res.status(404).json({ error: 'Admin no encontrado' })
     res.json(admin)
-  } catch (e: any) {
-    res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // POST /api/admin-users
-router.post('/', async (req: Request, res: Response) => {
+// Fase S6: creación de admins fuera del alcance de la x-api-key de n8n —
+// exige Bearer de un admin ya logueado (ver requireAdminBearer). El
+// primer admin lo crea prisma/seed.ts.
+router.post('/', requireAdminBearer, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, nombre, password } = req.body
     if (!password) return res.status(400).json({ error: 'La contraseña es requerida' })
@@ -48,13 +52,13 @@ router.post('/', async (req: Request, res: Response) => {
       select: { id: true, email: true, nombre: true, alta: true },
     })
     res.status(201).json(admin)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
 // POST /api/admin-users/login
-router.post('/login', loginRateLimit, async (req: Request, res: Response) => {
+router.post('/login', loginRateLimit, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body
     const admin = await prisma.adminUser.findUnique({ where: { email } })
@@ -71,13 +75,13 @@ router.post('/login', loginRateLimit, async (req: Request, res: Response) => {
       token,
       user: { id: admin.id, email: admin.email, nombre: admin.nombre },
     })
-  } catch (e: any) {
-    res.status(500).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
-// PUT /api/admin-users/:id
-router.put('/:id', async (req: Request, res: Response) => {
+// PUT /api/admin-users/:id — Fase S6: mismo criterio que el POST.
+router.put('/:id', requireAdminBearer, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { nombre, email, password } = req.body
     const data: any = { nombre, email }
@@ -89,13 +93,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       select: { id: true, email: true, nombre: true, modificacion: true },
     })
     res.json(admin)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 
-// DELETE lógico /api/admin-users/:id
-router.delete('/:id', async (req: Request, res: Response) => {
+// DELETE lógico /api/admin-users/:id — Fase S6: mismo criterio que el POST.
+router.delete('/:id', requireAdminBearer, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = await prisma.adminUser.update({
       where: { id: Number(req.params.id) },
@@ -103,8 +107,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
       select: { id: true, email: true, baja: true },
     })
     res.json(admin)
-  } catch (e: any) {
-    res.status(400).json({ error: e.message })
+  } catch (e) {
+    next(e)
   }
 })
 

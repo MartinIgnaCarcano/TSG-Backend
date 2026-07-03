@@ -76,6 +76,34 @@ export const config = {
   authEnabled: optionalBoolean('AUTH_ENABLED', false),
   // n8n se autentica con esta API key fija (header x-api-key), no con JWT.
   n8nApiKey: process.env.N8N_API_KEY,
+
+  // Documentos (vouchers/contratos) — Fase B/C. Sin key, lib/documentos.ts
+  // cae a modo mock (guarda HTML en vez de PDF), igual que MOCK_FLIGHTS.
+  pdfshiftApiKey: process.env.PDFSHIFT_API_KEY,
+  documentosStorageDir: process.env.DOCUMENTOS_STORAGE_DIR ?? 'storage/documentos',
+
+  // Fase S3 — los vouchers/contratos tienen DNI y fecha de nacimiento
+  // (Ley 25.326): ya no se sirven como estático público sin vencimiento.
+  // Se firman con HMAC-SHA256(id + exp, DOCS_URL_SECRET) — ver
+  // lib/documentos.ts. Requerida siempre (no depende de AUTH_ENABLED).
+  docsUrlSecret: required('DOCS_URL_SECRET'),
+  // Host público con el que se arman los links firmados que van por
+  // WhatsApp/email. En local, http://localhost:<PORT> (mismo host que
+  // hoy asume Flujo7 al armar el link).
+  publicBaseUrl: process.env.PUBLIC_BASE_URL ?? `http://localhost:${optionalNumber('PORT', 3001)}`,
+
+  // Webhook de n8n que dispara WhatsApp + email apenas se emite un
+  // voucher/contrato (disparo inmediato al apretar el botón, en vez de
+  // esperar al cron de Flujo3 — ver routes/reservas.ts). Fire-and-forget:
+  // si n8n no está levantado, no debe romper la respuesta al front.
+  n8nWebhookDocumentoUrl:
+    process.env.N8N_WEBHOOK_DOCUMENTO_URL ?? 'http://localhost:5678/webhook/documento-emitido',
+}
+
+if (!config.pdfshiftApiKey) {
+  console.warn(
+    '⚠️  No hay PDFSHIFT_API_KEY configurada — los vouchers/contratos se generan con Puppeteer (Chromium local) en vez de PDFShift.',
+  )
 }
 
 if (!config.rapidApiKey && !config.mockFlights) {

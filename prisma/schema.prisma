@@ -16,7 +16,7 @@ model Cliente {
   numeroCliente   String   @unique @map("numero_cliente")
   nombre          String
   apellido        String
-  email           String
+  email           String   @unique
   telefono        String
   cotizaciones    Cotizacion[]
   reservas        Reserva[]
@@ -144,6 +144,12 @@ model Cotizacion {
   hotel           Hotel?   @relation(fields: [hotelId], references: [id])
   noches          Int?     // cantidad de noches
   precioHotel     Decimal? @db.Decimal(12, 2) @map("precio_hotel") // total hotel (precioNoche * noches)
+  // Atributos del producto aéreo cotizado (reintegrados del modelo original).
+  // Reflejan lo que captura la calculadora de vuelos (clase, equipaje, extras).
+  clase           ClaseVuelo @default(ECONOMICA)
+  cantidadValijas Int      @default(0) @map("cantidad_valijas") // valijas de bodega incluidas/adicionales
+  extras          String?  // servicios adicionales (seguro, selección de asiento, traslados, etc.)
+  precioExtras    Decimal? @db.Decimal(12, 2) @map("precio_extras") // costo total de los extras
   reservas        Reserva[]
   alta            DateTime @default(now()) @map("alta")
   modificacion    DateTime @updatedAt @map("modificacion")
@@ -173,11 +179,113 @@ model Reserva {
   fechaReserva    DateTime @default(now()) @map("fecha_reserva")
   observaciones   String?
   recordatorios   Recordatorio[]
+  pasajeros       Pasajero[]
+  documentos      DocumentoGenerado[]
+  pagos           Pago[]
   alta            DateTime @default(now()) @map("alta")
   modificacion    DateTime @updatedAt @map("modificacion")
   baja            DateTime? @map("baja")
 
   @@map("reservas")
+}
+
+// =====================================================
+// PASAJERO — Fase B. Modelo aparte (1‑N con Reserva), no una
+// ampliación de Cliente: una reserva real de agencia puede llevar
+// varios viajeros (grupo familiar) con documento propio, distintos
+// del titular de la cuenta que figura en Cliente.
+// =====================================================
+enum TipoDocumentoIdentidad {
+  DNI
+  PASAPORTE
+}
+
+model Pasajero {
+  id              String   @id @default(cuid())
+  reservaId       String   @map("reserva_id")
+  reserva         Reserva  @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  nombre          String
+  apellido        String
+  documentoTipo   TipoDocumentoIdentidad @map("documento_tipo")
+  documentoNumero String   @map("documento_numero")
+  fechaNacimiento DateTime @db.Date @map("fecha_nacimiento")
+  nacionalidad    String?
+  esTitular       Boolean  @default(false) @map("es_titular") // true si coincide con el Cliente de la reserva
+  // Asistencia especial (reintegrado del campo `discapacidad` del modelo original).
+  // Se modela por pasajero porque la necesidad de asistencia es individual y debe
+  // viajar en el voucher / aviso a la aerolínea.
+  asistenciaEspecial Boolean @default(false) @map("asistencia_especial") // movilidad reducida, silla de ruedas, etc.
+  detalleAsistencia  String? @map("detalle_asistencia") // descripción libre del tipo de asistencia requerida
+  alta            DateTime @default(now()) @map("alta")
+  modificacion    DateTime @updatedAt @map("modificacion")
+  baja            DateTime? @map("baja")
+
+  @@index([reservaId])
+  @@map("pasajeros")
+}
+
+// =====================================================
+// DOCUMENTO GENERADO — Fase B (voucher) y Fase C (contrato), mismo
+// modelo. `datosSnapshot` congela los datos al momento de emitir (no
+// depende de que Cliente/Pasajero/Reserva no cambien después). Los
+// campos de aceptación quedan en null/false para VOUCHER y se usan
+// recién en Fase C para CONTRATO.
+// =====================================================
+enum TipoDocumento {
+  VOUCHER
+  CONTRATO
+  COTIZACION
+}
+
+model DocumentoGenerado {
+  id              String   @id @default(cuid())
+  reservaId       String   @map("reserva_id")
+  reserva         Reserva  @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  tipo            TipoDocumento
+  version         Int      @default(1)
+  url             String?  // ubicación pública del PDF/HTML servido por el back
+  hash            String?  // sha256 del contenido, para integridad
+  datosSnapshot   Json     @map("datos_snapshot")
+  fechaEmision    DateTime @default(now()) @map("fecha_emision")
+  // Fase C: registro de aceptación del contrato (sin firma digital avanzada)
+  aceptado        Boolean  @default(false)
+  fechaAceptacion DateTime? @map("fecha_aceptacion")
+  medioAceptacion String?  @map("medio_aceptacion")
+
+  @@index([reservaId, tipo])
+  @@map("documentos_generados")
+}
+
+// =====================================================
+// PAGO — Fase D. Conciliación: cada pago queda registrado individualmente
+// (medio, fecha, referencia) en vez de sólo mutar `saldoPagado` a mano.
+// `saldoPagado` en Reserva se mantiene como cache derivado (lo siguen
+// leyendo el front y n8n) pero ahora cada cambio tiene un Pago detrás
+// que lo justifica — se puede auditar de dónde salió cada peso.
+// =====================================================
+enum MedioPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+  MERCADOPAGO
+  OTRO
+}
+
+model Pago {
+  id             String    @id @default(cuid())
+  reservaId      String    @map("reserva_id")
+  reserva        Reserva   @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  monto          Decimal   @db.Decimal(12, 2)
+  medioPago      MedioPago @map("medio_pago")
+  referencia     String?   // nro de operación, transferencia, comprobante MP, etc.
+  observaciones  String?
+  fechaPago      DateTime  @default(now()) @map("fecha_pago")
+  alta           DateTime  @default(now()) @map("alta")
+  modificacion   DateTime  @updatedAt @map("modificacion")
+  baja           DateTime? @map("baja") // anulación de un pago mal registrado
+
+  @@index([reservaId])
+  @@map("pagos")
 }
 
 // =====================================================
@@ -196,10 +304,32 @@ enum TipoReserva {
   IDA_Y_VUELTA
 }
 
+// Clase/cabina del vuelo cotizado. Mapea con el parámetro travel_class de la
+// API de Google Flights (1=Economy, 2=Premium economy, 3=Business, 4=First).
+enum ClaseVuelo {
+  ECONOMICA
+  PREMIUM_ECONOMICA
+  EJECUTIVA
+  PRIMERA
+}
+
+// Máquina de estados explícita del ciclo de vida de la reserva (Fase E).
+// EN_PROCESO: reserva creada, sin seña.
+// SEÑADA: tiene un pago parcial (seña) pero no cubre el total.
+// PAGADA: saldoPendiente <= 0 (cubierta totalmente).
+// DOCUMENTADA: tiene voucher/contrato emitido (Fase B/C).
+// EN_VIAJE: dentro de la ventana fechaViaje..fechaRegreso.
+// FINALIZADA: viaje completado (terminal, salvo cancelación previa).
+// CANCELADA: terminal desde cualquier estado anterior.
+// Transiciones válidas centralizadas en reservas.service.ts (transicionarEstado).
 enum EstadoReserva {
-  CONFIRMADA
-  CANCELADA
   EN_PROCESO
+  SEÑADA
+  PAGADA
+  DOCUMENTADA
+  EN_VIAJE
+  FINALIZADA
+  CANCELADA
 }
 
 
@@ -224,6 +354,7 @@ enum TipoRecordatorio {
   POST_VIAJE   // 1 día después del regreso (feedback)
   CLIMA        // 3 días antes (opcional)
   VOUCHER      // 1 día antes (opcional)
+  CONTRATO     // inmediato, al confirmar la seña (EN_PROCESO -> SEÑADA)
 }
 
 model Recordatorio {

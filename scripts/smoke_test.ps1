@@ -1,7 +1,7 @@
 # ============================================================
 # Smoke test del flujo COMPLETO STG (bot + vendedor)
 # 1. El bot recibe los mensajes y crea Cotización PENDIENTE
-# 2. El vendedor (vía API) confirma → se crea Reserva CONFIRMADA
+# 2. El vendedor (vía API) confirma → se crea Reserva y pasa a SEÑADA/PAGADA
 # Uso:  cd C:\Facultad\Tesis\Back\TSG-Backend
 #       .\scripts\smoke_test.ps1
 # Requiere que el back esté corriendo en localhost:3000
