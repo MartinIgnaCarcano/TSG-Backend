@@ -14,7 +14,7 @@ import { prisma } from '../lib/prisma'
 import { validateBody } from '../middleware/validate'
 import { aceptarDocumentoSchema } from '../schemas/documento.schema'
 import { config } from '../config'
-import { validarFirmaDocumento, urlPublicaDocumento } from '../lib/documentos'
+import { validarFirmaDocumento, urlPublicaDocumento, leerBytesDocumento } from '../lib/documentos'
 
 const router = Router()
 
@@ -65,10 +65,16 @@ router.get('/:id/descargar', async (req: Request, res: Response, next: NextFunct
     // /storage/documentos/voucher-RES-123-169....pdf); acá solo importa
     // el nombre de archivo — path.basename evita cualquier path traversal.
     const nombreArchivo = path.basename(documento.url)
-    const rutaArchivo = path.join(process.cwd(), config.documentosStorageDir, nombreArchivo)
-    if (!fs.existsSync(rutaArchivo)) return res.status(404).json({ error: 'Documento no encontrado' })
 
-    res.sendFile(rutaArchivo)
+    // El contenido puede estar en disco (desarrollo) o en Supabase Storage
+    // (producción sobre sistemas de archivos efímeros). leerBytesDocumento
+    // resuelve cuál corresponde según la configuración.
+    const contenido = await leerBytesDocumento(nombreArchivo)
+    if (!contenido) return res.status(404).json({ error: 'Documento no encontrado' })
+
+    res.type(nombreArchivo.endsWith('.pdf') ? 'application/pdf' : 'text/html')
+    res.setHeader('Content-Disposition', `inline; filename="${nombreArchivo}"`)
+    res.send(contenido)
   } catch (e) {
     next(e)
   }

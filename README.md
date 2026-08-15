@@ -1,7 +1,56 @@
 # API de Gestión de Viajes
 
-**Base URL:** `http://localhost:3001`  
+[![CI](https://github.com/MartinIgnaCarcano/TSG-Backend/actions/workflows/ci.yml/badge.svg)](https://github.com/MartinIgnaCarcano/TSG-Backend/actions/workflows/ci.yml)
+
+**Base URL:** `http://localhost:3001`
 Todos los endpoints devuelven y reciben `Content-Type: application/json`.
+
+---
+
+## Front — build y servido en un solo origen (Fase M3)
+
+El front canónico es `Front/STG-Sistema-de-gesti-n-de-viajes-/react` (React
++ Vite + TypeScript). Hay dos formas de correrlo:
+
+**1. Dev server de Vite (separado del back, con CORS)** — la de siempre
+mientras se desarrolla:
+```bash
+cd Front/STG-Sistema-de-gesti-n-de-viajes-/react
+npm install
+npm run dev            # http://localhost:5173, ya está en CORS_ORIGINS por default
+```
+
+**2. Build servido desde este backend (un solo origen, sin CORS)** — pensada
+para la demo:
+```bash
+# 1) Buildear el front
+cd Front/STG-Sistema-de-gesti-n-de-viajes-/react
+npm install
+npm run build           # genera ./dist
+
+# 2) Apuntar el back a esa carpeta (en Back/TSG-Backend/.env)
+FRONT_DIST_DIR=../../Front/STG-Sistema-de-gesti-n-de-viajes-/react/dist
+
+# 3) Levantar el back
+cd Back/TSG-Backend
+npm run dev              # (o npm run build && npm start, según el package.json)
+```
+Con `FRONT_DIST_DIR` seteada, Express sirve los assets del build y hace
+fallback a `index.html` en cualquier ruta que no empiece con `/api` ni
+`/storage` (así `/reservas`, `/clientes`, etc. funcionan al refrescar la
+página, no solo navegando desde `/`). Todo queda en
+`http://localhost:3001` — login y las 8 páginas incluidas.
+
+**Si `FRONT_DIST_DIR` no está seteada (o está vacía/comentada), no cambia
+nada:** el back sigue siendo API-only, igual que hasta ahora. Tampoco se
+sirve nada si la carpeta no tiene `index.html` (por ejemplo, si te olvidaste
+de correr `npm run build`) — el server arranca igual, solo con un warning
+en la consola.
+
+> Los fronts viejos (`Front/STG-Sistema-de-gesti-n-de-viajes-/*.html` y
+> `Front/stg-react`) siguen en el repo por ahora — no se tocaron en esta
+> fase. `stg-react` es una copia vieja del 22/06, no confundir con el front
+> canónico de arriba.
 
 ---
 
@@ -40,8 +89,9 @@ Pero ese token solo se **exige** si la variable de entorno
 `AUTH_ENABLED=true`. Con `AUTH_ENABLED=false` (default, modo demo), la
 API queda abierta como hasta ahora — ningún endpoint pide token.
 
-Cuando `AUTH_ENABLED=true`, todas las rutas excepto `GET /api` (health)
-y `POST /api/admin-users/login` exigen uno de estos dos headers:
+Cuando `AUTH_ENABLED=true`, todas las rutas excepto `GET /api`, `GET
+/api/health` (health checks) y `POST /api/admin-users/login` exigen uno
+de estos dos headers:
 
 - **Admins (front):** `Authorization: Bearer <token>` — el JWT que devuelve el login. Expira a las 8 h (`JWT_EXPIRES_IN`).
 - **n8n (workflows):** `x-api-key: <N8N_API_KEY>` — una key fija, no es un JWT. Hay que configurar este mismo valor en los 5 workflows de n8n que llaman a esta API antes de activar `AUTH_ENABLED`.
@@ -111,6 +161,44 @@ siempre como fallback (no rompe la demo).
 > secuencial vía Postgres sequences (hoy `numeroCliente`/`numeroCotizacion`/
 > `numeroReserva` usan `Date.now()`) y migrar `onDelete: Cascade → Restrict`
 > en el schema de Prisma.
+
+---
+
+## Fase M7 — Deudas menores
+
+### Zona horaria en recordatorios (limitación conocida, no resuelta)
+`construirRecordatorios` (`src/services/reservas.service.ts`) calcula
+`PAGO_SALDO` (-14 días), `CHECK_IN` (-1 día) y `POST_VIAJE` (+1 día) sumando
+milisegundos sobre el `Date` de `fechaViaje`/`fechaRegreso` — aritmética UTC
+plana. El schema tiene `Destino.timezone` (ej.
+`"America/Argentina/Buenos_Aires"`, poblado por el seed) pensado para
+calcular estos recordatorios respecto de la hora **local** del aeropuerto de
+origen, pero hoy no se usa en ningún lado del cálculo. En la práctica el
+corrimiento que esto puede introducir es de a lo sumo unas horas (no cambia
+el día calendario salvo en vuelos muy cerca de la medianoche), así que no
+afecta la demo. Documentado como deuda técnica; la resolución ideal sería
+recalcular con la timezone real de `Destino` (`Intl.DateTimeFormat` o
+`date-fns-tz`) en vez de sumar/restar días en UTC.
+
+### PAGO_SALDO con fecha de viaje próxima
+Si `fechaViaje - 14 días` ya quedó en el pasado al momento de crear la
+reserva (viaje a menos de 14 días), el recordatorio `PAGO_SALDO` se programa
+para **ahora** en vez de quedar con una fecha pasada. Antes se dejaba la
+fecha calculada tal cual y dependía de que el cron de recordatorios
+(`Flujo3_Recordatorios.json`, que toma todo lo que tenga `fechaProgramada <=
+ahora`) lo levantara en su próximo tick — funcionaba, pero era un efecto
+colateral no explícito. Ver `construirRecordatorios` y su test en
+`reservas.service.test.ts`.
+
+### Paginación de listados grandes
+`GET /api/clientes`, `GET /api/cotizaciones` y `GET /api/reservas` ya
+soportan paginación opcional vía `src/lib/pagination.ts` (ver sección
+"Paginación opcional" más arriba) — es la infraestructura pensada para estos
+tres listados. Se mantiene deliberadamente **opt-in**: sin `?page`/
+`?pageSize` la respuesta sigue siendo el array plano de siempre, porque el
+front React actual y los workflows de n8n (`useClientes`, `Flujo2`,
+`Flujo4`, etc.) llaman a estos endpoints sin esos parámetros y esperan un
+array. Forzar paginación por defecto rompería esos consumidores.
 
 ---
 

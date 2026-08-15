@@ -9,6 +9,7 @@
 // =====================================================
 import axios from 'axios'
 import { config } from '../config'
+import { logger } from './logger'
 
 export type TipoDocumentoEmitido = 'VOUCHER' | 'CONTRATO'
 
@@ -22,15 +23,41 @@ export interface DocumentoEmitidoPayload {
 
 /**
  * Avisa a n8n que se acaba de emitir un documento. No lanza si falla — solo
- * loguea una advertencia, para no romper la respuesta de la ruta que llama
- * a esto (el documento ya se generó y guardó igual).
+ * loguea (resultado + latencia, Fase M4), para no romper la respuesta de la
+ * ruta que llama a esto (el documento ya se generó y guardó igual).
  */
 export function notificarDocumentoEmitido(payload: DocumentoEmitidoPayload): void {
+  const start = process.hrtime.bigint()
+
   axios
     .post(config.n8nWebhookDocumentoUrl, payload, { timeout: 10000 })
+    .then(() => {
+      const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000
+      logger.info(
+        {
+          webhook: 'notificarDocumentoEmitido',
+          tipo: payload.tipo,
+          reservaId: payload.reservaId,
+          url: config.n8nWebhookDocumentoUrl,
+          resultado: 'ok',
+          latencyMs,
+        },
+        `Webhook de ${payload.tipo} emitido: n8n avisado`,
+      )
+    })
     .catch((e: any) => {
-      console.warn(
-        `⚠️  No se pudo avisar a n8n (${config.n8nWebhookDocumentoUrl}) sobre el ${payload.tipo} de la reserva ${payload.reservaId}: ${e.message}. El documento se generó igual; el envío automático de WhatsApp/email no se disparó.`,
+      const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000
+      logger.warn(
+        {
+          webhook: 'notificarDocumentoEmitido',
+          tipo: payload.tipo,
+          reservaId: payload.reservaId,
+          url: config.n8nWebhookDocumentoUrl,
+          resultado: 'error',
+          latencyMs,
+          err: e,
+        },
+        `No se pudo avisar a n8n sobre el ${payload.tipo} de la reserva ${payload.reservaId}. El documento se generó igual; el envío automático de WhatsApp/email no se disparó.`,
       )
     })
 }

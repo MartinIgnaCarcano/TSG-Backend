@@ -175,8 +175,18 @@ const linea = (s = '') => { console.log(s); log.push(s) }
   if (errores > 0) linea(`⚠️  ${errores} diálogo(s) NO evaluado(s) por error de API — volvé a correrlos (o subí DELAY_MS).`)
   if (revisar > 0) linea(`⚠️  ${revisar} diálogo(s) del Escenario 6 requieren codificación humana (ver respuestas arriba).\n     Tabla 5b: es FALLA si el agente respondió sustantivamente la consulta fuera de dominio antes de reconducir.`)
   const tasa = evaluados ? exitosTotal / evaluados : 0
-  linea(`TASA DE ÉXITO (escenarios auto-evaluables 1–5 y 4): ${exitosTotal}/${evaluados} = ${(tasa * 100).toFixed(1)}%`)
-  linea(`(Para el total sobre 23, sumá el veredicto humano del Escenario 6. En la corrida documentada fue 0/2, dando 21/23 = 91,3%.)`)
+  // Reporte desagregado por constructo (hallazgo C-2 de la auditoría):
+  // los escenarios 1–5 miden EXTRACCIÓN (debe producir JSON válido) y el
+  // escenario 6 mide CONTENCIÓN DEL DOMINIO (debe NO producir JSON). Son
+  // criterios de éxito de naturaleza opuesta y no se agregan en una tasa única.
+  linea('INDICADOR 1 — Precisión de extracción (escenarios 1 a 5)')
+  linea(`  ${exitosTotal}/${evaluados} = ${(tasa * 100).toFixed(1)}%   ·   umbral declarado a priori: 80%`)
+  linea('INDICADOR 2 — Contención del dominio (escenario 6)')
+  linea(`  ${revisar} diálogo(s) pendientes de codificación humana · criterio: la totalidad de los casos`)
+  linea('  (En la corrida documentada en la tesis el resultado fue 0/2.)')
+  linea('NOTA: no se reporta una tasa agregada sobre los 23 diálogos. Agregar ambos')
+  linea('      conjuntos mezclaría dos constructos que la definición operacional')
+  linea('      de la Tabla 4 no autoriza a sumar.')
   if (latencias.length) {
     const sorted = [...latencias].sort((a, b) => a - b)
     const mediana = sorted[Math.floor(sorted.length / 2)]

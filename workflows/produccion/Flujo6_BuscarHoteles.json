@@ -1,0 +1,318 @@
+{
+  "name": "STG Flujo 6 — Buscar Hoteles por destino",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "buscar-hoteles",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6aaa0001-0000-0000-0000-000000000001",
+      "name": "Webhook buscar-hoteles",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        400
+      ],
+      "webhookId": "buscar-hoteles"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\n// destinoNombre es la ciudad libre (ej: \"París\", \"Buenos Aires\")\n// destinoIATA es opcional — si viene, se usa para guardar en el back\nconst destinoNombre = (body.destinoNombre || '').replace(/\\s*\\(.*?\\)\\s*/g, '').trim();\nconst destinoIATA = (body.destinoIATA || destinoNombre.toUpperCase().slice(0, 3)).toUpperCase();\nconst destinoId = body.destinoId || null;\nconst checkin = body.checkin || new Date(Date.now() + 30*86400000).toISOString().slice(0,10);\nconst checkout = body.checkout || new Date(Date.now() + 37*86400000).toISOString().slice(0,10);\nconst adults = body.adults || 2;\nconst rooms = body.rooms || 1;\nconst estrellas = body.estrellas || null;\nconst precioMax = body.precioMax || null;\n\nif (!destinoNombre) {\n  return [{ json: { error: 'Falta destinoNombre' } }];\n}\n\nreturn [{ json: { destinoIATA, destinoNombre, destinoId, checkin, checkout, adults, rooms, estrellas, precioMax } }];"
+      },
+      "id": "6aaa0002-0000-0000-0000-000000000002",
+      "name": "Parsear input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -660,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://booking-com15.p.rapidapi.com/api/v1/hotels/searchDestination",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.destinoNombre }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-key",
+              "value": "18d9f2c737msh5e2a30eb580bcc7p193f75jsnce101194bf06"
+            },
+            {
+              "name": "x-rapidapi-host",
+              "value": "booking-com15.p.rapidapi.com"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "6aaa0003-0000-0000-0000-000000000003",
+      "name": "Buscar destination_id",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -420,
+        400
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer dest_id del primer resultado (booking-com15) o usar fallback\nconst raw = $input.first().json;\nconst ctx = $('Parsear input').first().json;\n\nlet destId = null;\ntry {\n  const list = raw?.data || raw?.results || [];\n  if (Array.isArray(list) && list.length > 0) {\n    destId = list[0].dest_id || list[0].destId || list[0].id;\n  }\n} catch(e) {}\n\nreturn [{ json: { ...ctx, destId: destId || ctx.destinoIATA } }];"
+      },
+      "id": "6aaa0004-0000-0000-0000-000000000004",
+      "name": "Extraer destId",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://booking-com15.p.rapidapi.com/api/v1/hotels/searchHotels",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dest_id",
+              "value": "={{ $json.destId }}"
+            },
+            {
+              "name": "search_type",
+              "value": "CITY"
+            },
+            {
+              "name": "arrival_date",
+              "value": "={{ $json.checkin }}"
+            },
+            {
+              "name": "departure_date",
+              "value": "={{ $json.checkout }}"
+            },
+            {
+              "name": "adults",
+              "value": "={{ $json.adults }}"
+            },
+            {
+              "name": "page_number",
+              "value": "1"
+            },
+            {
+              "name": "languagecode",
+              "value": "es"
+            },
+            {
+              "name": "currency_code",
+              "value": "USD"
+            },
+            {
+              "name": "room_number",
+              "value": "={{ $json.rooms }}"
+            },
+            {
+              "name": "categories_filter",
+              "value": "={{ $json.estrellas ? $json.estrellas.toString().split(',').map(s => 'class::' + s.trim()).join(',') : '' }}"
+            },
+            {
+              "name": "price_filter_max",
+              "value": "={{ $json.precioMax || '' }}"
+            },
+            {
+              "name": "price_filter_currencycode",
+              "value": "USD"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-key",
+              "value": "18d9f2c737msh5e2a30eb580bcc7p193f75jsnce101194bf06"
+            },
+            {
+              "name": "x-rapidapi-host",
+              "value": "booking-com15.p.rapidapi.com"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "6aaa0005-0000-0000-0000-000000000005",
+      "name": "Buscar Hoteles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        400
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalizar respuesta de Booking → formato bulk del back\nconst raw = $input.first().json;\nconst ctx = $('Extraer destId').first().json;\n\nconst items = [];\nconst hotelsRaw = raw?.data?.hotels || raw?.hotels || raw?.data || [];\n\nfor (const h of (Array.isArray(hotelsRaw) ? hotelsRaw.slice(0, 10) : [])) {\n  const prop = h.property || h;\n  const nombre = prop.name || prop.hotel_name || h.name;\n  if (!nombre) continue;\n\n  const precio = prop.priceBreakdown?.grossPrice?.value\n    || prop.price\n    || prop.gross_amount\n    || h.min_total_price\n    || 0;\n  const estrellas = Math.round(prop.accuratePropertyClass || prop.propertyClass || prop.class || h.class || 3);\n  const rating = prop.reviewScore || prop.review_score || h.review_score || null;\n  const fotos = prop.photoUrls || prop.main_photo_url || [];\n  const urlImg = Array.isArray(fotos) ? fotos[0] : fotos;\n  const reservaUrl = prop.url || h.url || null;\n  const direccion = prop.wishlistName || prop.address || h.address || '';\n\n  // Calcular precio por noche (Booking devuelve el total)\n  const noches = Math.max(1, Math.round((new Date(ctx.checkout) - new Date(ctx.checkin)) / 86400000));\n  const precioPorNoche = noches > 0 ? Math.round(precio / noches) : precio;\n\n  items.push({\n    nombre,\n    destinoIATA: ctx.destinoIATA,\n    estrellas: estrellas || 3,\n    precioNoche: precioPorNoche || 0,\n    rating: rating ? Number((rating / 1).toFixed(1)) : null,\n    urlImagen: urlImg || null,\n    urlReserva: reservaUrl,\n    direccion,\n    fuente: 'BOOKING',\n  });\n}\n\nif (items.length === 0) {\n  return [{ json: { items: [], hint: 'Sin resultados o RapidAPI no respondió. Verificá la key.' } }];\n}\n\nreturn [{ json: { items } }];"
+      },
+      "id": "6aaa0006-0000-0000-0000-000000000006",
+      "name": "Normalizar hoteles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.API_BASE }}/api/hoteles/bulk",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ items: $json.items }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.N8N_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "6aaa0007-0000-0000-0000-000000000007",
+      "name": "POST bulk al back",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        540,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": true,\n  \"creados\": {{ $json.creados ?? 0 }},\n  \"actualizados\": {{ $json.actualizados ?? 0 }},\n  \"total\": {{ $json.total ?? 0 }}\n}",
+        "options": {}
+      },
+      "id": "6aaa0008-0000-0000-0000-000000000008",
+      "name": "Responder al front",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        780,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook buscar-hoteles": {
+      "main": [
+        [
+          {
+            "node": "Parsear input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear input": {
+      "main": [
+        [
+          {
+            "node": "Buscar destination_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar destination_id": {
+      "main": [
+        [
+          {
+            "node": "Extraer destId",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer destId": {
+      "main": [
+        [
+          {
+            "node": "Buscar Hoteles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Hoteles": {
+      "main": [
+        [
+          {
+            "node": "Normalizar hoteles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar hoteles": {
+      "main": [
+        [
+          {
+            "node": "POST bulk al back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST bulk al back": {
+      "main": [
+        [
+          {
+            "node": "Responder al front",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "stg"
+    },
+    {
+      "name": "hoteles"
+    }
+  ],
+  "active": false
+}

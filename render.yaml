@@ -1,0 +1,66 @@
+# Blueprint de Render para el backend STG.
+#
+# Se puede usar de dos maneras: crear el servicio a mano desde el panel
+# (Render igual detecta el Dockerfile), o importar este archivo con
+# "New → Blueprint" apuntando al repositorio.
+#
+# Plan free: el servicio se suspende tras 15 minutos sin tráfico y tarda
+# alrededor de un minuto en volver. No admite disco persistente, por eso los
+# documentos emitidos se guardan en Supabase Storage (ver SUPABASE_URL y
+# SUPABASE_SERVICE_KEY más abajo).
+
+services:
+  - type: web
+    name: stg-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # ── Obligatorias: cargalas a mano en el panel ────────────────────────
+      # Supabase → Settings → Database → Connection string (URI, puerto 5432)
+      - key: DATABASE_URL
+        sync: false
+      # openssl rand -hex 32
+      - key: JWT_SECRET
+        sync: false
+      - key: DOCS_URL_SECRET
+        sync: false
+      # openssl rand -hex 24 — la misma que cargues en n8n
+      - key: N8N_API_KEY
+        sync: false
+
+      # ── Documentos en Supabase Storage (el disco de Render es efímero) ───
+      # Supabase → Settings → API → Project URL
+      - key: SUPABASE_URL
+        sync: false
+      # Supabase → Settings → API → service_role (secreta, nunca al frontend)
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: DOCUMENTOS_BUCKET
+        value: documentos
+
+      # ── Integración tarifaria ────────────────────────────────────────────
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: RAPIDAPI_FLIGHTS_HOST
+        value: google-flights2.p.rapidapi.com
+      # En true no consume cuota: útil para validar el despliegue
+      - key: MOCK_FLIGHTS
+        value: "true"
+
+      # ── Autenticación y red ──────────────────────────────────────────────
+      - key: AUTH_ENABLED
+        value: "true"
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      # Completar tras el deploy del frontend
+      - key: CORS_ORIGINS
+        sync: false
+      # Completar con la URL que asigne Render
+      - key: PUBLIC_BASE_URL
+        sync: false

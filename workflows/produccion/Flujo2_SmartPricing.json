@@ -1,0 +1,252 @@
+{
+  "name": "STG Flujo 2 — Smart Pricing (cron 6AM)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "2aaa0001-0000-0000-0000-000000000001",
+      "name": "Cron 6:00 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.API_BASE }}/api/cotizaciones?vigentes=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.N8N_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "2aaa0002-0000-0000-0000-000000000002",
+      "name": "GET cotizaciones vigentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "id": "2aaa0003-0000-0000-0000-000000000003",
+      "name": "Una por una",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        400
+      ],
+      "notes": "Si el back devuelve un array directo, podés sacar este nodo o usar Split In Batches."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer fechaIda y fechaVuelta del primer y último tramo de la cotización\nconst c = $json;\nconst tramos = c.viaje?.tramos || [];\nif (tramos.length < 2) return [{ json: { skip: true } }];\n\nconst fechaIda = (tramos[0].horaSalida || '').slice(0, 10);\nconst fechaVuelta = (tramos[tramos.length - 1].horaSalida || tramos[tramos.length - 1].horaLlegada || '').slice(0, 10);\nif (!fechaIda || !fechaVuelta) return [{ json: { skip: true } }];\n\nreturn [{\n  json: {\n    cotizacionId: c.id,\n    numeroCotizacion: c.numeroCotizacion,\n    clienteNombre: `${c.cliente?.nombre || ''} ${c.cliente?.apellido || ''}`.trim(),\n    clienteEmail: c.cliente?.email,\n    origenIATA: c.viaje?.origen?.codigoIATA,\n    destinoIATA: c.viaje?.destino?.codigoIATA,\n    origenNombre: c.viaje?.origen?.nombre,\n    destinoNombre: c.viaje?.destino?.nombre,\n    fechaIda,\n    fechaVuelta,\n    precioOriginal: parseFloat(c.precioIdaYVuelta),\n    skip: false\n  }\n}];"
+      },
+      "id": "2aaa0004-0000-0000-0000-000000000004",
+      "name": "Preparar consulta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://google-flights2.p.rapidapi.com/api/v1/searchFlights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "departure_id",
+              "value": "={{ $json.origenIATA }}"
+            },
+            {
+              "name": "arrival_id",
+              "value": "={{ $json.destinoIATA }}"
+            },
+            {
+              "name": "outbound_date",
+              "value": "={{ $json.fechaIda }}"
+            },
+            {
+              "name": "return_date",
+              "value": "={{ $json.fechaVuelta }}"
+            },
+            {
+              "name": "currency",
+              "value": "USD"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-key",
+              "value": "REEMPLAZAR_CON_TU_RAPIDAPI_KEY"
+            },
+            {
+              "name": "x-rapidapi-host",
+              "value": "google-flights2.p.rapidapi.com"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "2aaa0005-0000-0000-0000-000000000005",
+      "name": "Re-consultar Google Flights",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        400
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('Preparar consulta').first().json;\nconst data = $json;\n\nconst top = data?.data?.itineraries?.topFlights;\nif (!Array.isArray(top) || top.length === 0) return [];\n\nconst precioActual = top[0].price;\nif (!precioActual) return [];\n\nconst pctBaja = ((ctx.precioOriginal - precioActual) / ctx.precioOriginal) * 100;\n\nif (pctBaja < 5) return []; // solo notifico si bajó al menos 5%\n\nreturn [{\n  json: {\n    cotizacionId: ctx.cotizacionId,\n    numeroCotizacion: ctx.numeroCotizacion,\n    cliente: ctx.clienteNombre,\n    ruta: `${ctx.origenIATA} → ${ctx.destinoIATA}`,\n    fechas: `${ctx.fechaIda} → ${ctx.fechaVuelta}`,\n    precioOriginal: ctx.precioOriginal,\n    precioActual,\n    ahorro: ctx.precioOriginal - precioActual,\n    pctBaja: pctBaja.toFixed(1),\n    mensaje: `🚨 *Smart Pricing — Bajó un precio*\\n\\n📋 Cotización: ${ctx.numeroCotizacion}\\n👤 Cliente: ${ctx.clienteNombre}\\n✈️ ${ctx.origenIATA} → ${ctx.destinoIATA} (${ctx.fechaIda} → ${ctx.fechaVuelta})\\n\\n💰 *USD ${precioActual.toFixed(0)}* (antes USD ${ctx.precioOriginal.toFixed(0)})\\n📉 Ahorro: USD ${(ctx.precioOriginal - precioActual).toFixed(0)} (-${pctBaja.toFixed(1)}%)\\n\\nContactá al cliente y re-cotizá.`\n  }\n}];"
+      },
+      "id": "2aaa0006-0000-0000-0000-000000000006",
+      "name": "¿Bajó más de 5%?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "+14155238886",
+        "to": "={{ $env.TWILIO_VENDEDOR_TO || '+5492611111111' }}",
+        "toWhatsapp": true,
+        "message": "={{ $json.mensaje }}",
+        "options": {}
+      },
+      "id": "2aaa0007-0000-0000-0000-000000000007",
+      "name": "Notificar vendedor",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        760,
+        400
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "REEMPLAZAR_CON_TU_CREDENCIAL_TWILIO",
+          "name": "Twilio"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cron 6:00 AM": {
+      "main": [
+        [
+          {
+            "node": "GET cotizaciones vigentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET cotizaciones vigentes": {
+      "main": [
+        [
+          {
+            "node": "Una por una",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Una por una": {
+      "main": [
+        [
+          {
+            "node": "Preparar consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar consulta": {
+      "main": [
+        [
+          {
+            "node": "Re-consultar Google Flights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-consultar Google Flights": {
+      "main": [
+        [
+          {
+            "node": "¿Bajó más de 5%?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Bajó más de 5%?": {
+      "main": [
+        [
+          {
+            "node": "Notificar vendedor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "stg"
+    },
+    {
+      "name": "smart-pricing"
+    }
+  ],
+  "active": false
+}

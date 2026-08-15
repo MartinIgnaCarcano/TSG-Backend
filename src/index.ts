@@ -1,9 +1,14 @@
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
+import path from 'path'
+import fs from 'fs'
+import pinoHttp from 'pino-http'
+import { randomUUID } from 'crypto'
 import { Prisma } from '@prisma/client'
 import { ZodError } from 'zod'
 import { config } from './config'
+import { logger } from './lib/logger'
 import { requireAuth } from './middleware/auth'
 import { TransicionInvalidaError } from './services/reservas.service'
 import clientesRouter from './routes/clientes'
@@ -21,8 +26,26 @@ import pasajerosRouter from './routes/pasajeros'
 import documentosRouter from './routes/documentos'
 import pagosRouter from './routes/pagos'
 import estadisticasRouter from './routes/estadisticas'
+import healthRouter from './routes/health'
 
 const app = express()
+
+// Fase M4 — log estructurado de cada request con request-id correlacionable
+// (header `x-request-id` si el cliente lo manda, o uno generado). Reemplaza
+// los console.log/console.error sueltos del server: `req.log` (dentro de
+// cada ruta/middleware) y `logger` (fuera de un request) escriben con el
+// mismo formato — pretty en dev, JSON puro si NODE_ENV=production.
+app.use(
+  pinoHttp({
+    logger,
+    genReqId: (req, res) => {
+      const existing = req.headers['x-request-id']
+      const id = (Array.isArray(existing) ? existing[0] : existing) || randomUUID()
+      res.setHeader('x-request-id', id)
+      return id
+    },
+  }),
+)
 
 app.use(helmet())
 
@@ -73,9 +96,49 @@ app.use('/api/pasajeros', pasajerosRouter)
 app.use('/api/documentos', documentosRouter)
 app.use('/api/pagos', pagosRouter)
 app.use('/api/estadisticas', estadisticasRouter)
+app.use('/api/health', healthRouter)
 
-// Health check
+// Ping simple (no chequea la DB) — se mantiene por compatibilidad; para
+// monitoreo real usar GET /api/health (Fase M4).
 app.get('/api', (req, res) => res.json({ message: 'API funcionando ✅' }))
+
+// =====================================================
+// Fase M3 — servir el build del front React (opcional, "un solo origen").
+// Se activa solo si FRONT_DIST_DIR está seteada en .env; si no, el back
+// sigue siendo API-only (comportamiento actual, sin cambios). Pensado para
+// `npm run build` del front (Front/STG-Sistema-de-gesti-n-de-viajes-/react)
+// apuntando FRONT_DIST_DIR a esa carpeta `dist`, y así levantar todo con
+// un solo proceso (sin CORS, sin ngrok para el front en la demo).
+// =====================================================
+if (config.frontDistDir) {
+  const distDir = path.resolve(config.frontDistDir)
+
+  if (!fs.existsSync(path.join(distDir, 'index.html'))) {
+    logger.warn(
+      { frontDistDir: config.frontDistDir },
+      'FRONT_DIST_DIR no tiene index.html (¿corriste "npm run build" en el front?). No se sirve el front.',
+    )
+  } else {
+    // Assets del build (JS/CSS/imágenes con hash) servidos tal cual.
+    app.use(express.static(distDir))
+
+    // Fallback SPA: cualquier GET que no sea /api ni /storage devuelve
+    // index.html para que React Router resuelva la ruta client-side (ej.
+    // refrescar en /reservas no debe dar 404). No es una ruta con patrón
+    // (evita cualquier lío de sintaxis de path-to-regexp en Express 5):
+    // es un middleware que chequea el path a mano y sigue de largo si no
+    // le corresponde.
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/storage')) {
+        next()
+        return
+      }
+      res.sendFile(path.join(distDir, 'index.html'))
+    })
+
+    logger.info({ distDir }, 'Front servido desde el back (FRONT_DIST_DIR)')
+  }
+}
 
 // Handler global de errores (Fase S1). Nunca devuelve err.message ni
 // err.stack al cliente: un error de Prisma (P2002, nombre de columna/tabla,
@@ -84,7 +147,7 @@ app.get('/api', (req, res) => res.json({ message: 'API funcionando ✅' }))
 // `catch (e) { next(e) }` y todo el mapeo de errores conocidos vive acá,
 // en un único lugar.
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`, err)
+  ;(req.log ?? logger).error({ err, method: req.method, url: req.originalUrl }, 'Error no manejado')
 
   const isCorsRejection = typeof err?.message === 'string' && err.message.startsWith('Origen no permitido por CORS')
   if (isCorsRejection) {
@@ -128,24 +191,32 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 })
 
 const server = app.listen(config.port, () => {
-  console.log(`✅ Server corriendo en http://localhost:${config.port}`)
-  console.log(`   API:          http://localhost:${config.port}/api`)
-  console.log(`   Destinos:     http://localhost:${config.port}/api/destinos`)
-  console.log(`   Cotizaciones: http://localhost:${config.port}/api/cotizaciones`)
-  console.log(`   Reservas:     http://localhost:${config.port}/api/reservas`)
+  logger.info(
+    {
+      port: config.port,
+      urls: {
+        api: `http://localhost:${config.port}/api`,
+        health: `http://localhost:${config.port}/api/health`,
+        destinos: `http://localhost:${config.port}/api/destinos`,
+        cotizaciones: `http://localhost:${config.port}/api/cotizaciones`,
+        reservas: `http://localhost:${config.port}/api/reservas`,
+      },
+    },
+    'Server corriendo',
+  )
 })
 
 server.on('error', (err: any) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`❌ El puerto ${config.port} ya está en uso. Cerrá el otro proceso o cambiá PORT en .env`)
+    logger.error({ port: config.port }, 'El puerto ya está en uso. Cerrá el otro proceso o cambiá PORT en .env')
   } else {
-    console.error('❌ Error del servidor:', err)
+    logger.error({ err }, 'Error del servidor')
   }
   process.exit(1)
 })
 
 // Mantener el proceso vivo (fix para Express 5 + ts-node)
 process.on('SIGINT', () => {
-  console.log('\n👋 Cerrando servidor...')
+  logger.info('Cerrando servidor...')
   server.close(() => process.exit(0))
 })

@@ -1,0 +1,1323 @@
+openapi: 3.0.3
+info:
+  title: STG - API de persistencia
+  description: 'Contrato formal de la capa de persistencia del ecosistema Smart Booking STG.
+
+    Generado a partir de las rutas de Express (src/routes/*.ts).
+
+
+    Cubre el hallazgo C-4 de la auditoria: los endpoints estaban documentados en la
+
+    Tabla 7 de la tesis en prosa, sin contrato verificable que permitiera probarlos.
+
+
+    Recuento verificado en esta version: 73 rutas sobre 16 recursos.
+
+    '
+  version: 1.0.0
+servers:
+- url: http://localhost:3001
+  description: Entorno local de desarrollo
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT emitido por POST /api/admin-users/login
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Clave fija para los flujos de n8n (requerida si AUTH_ENABLED=true)
+security:
+- bearerAuth: []
+- apiKeyAuth: []
+paths:
+  /api/admin-users:
+    get:
+      tags:
+      - adminUsers
+      summary: GET /api/admin-users
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - adminUsers
+      summary: POST /api/admin-users
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/admin-users/login:
+    post:
+      tags:
+      - adminUsers
+      summary: POST /api/admin-users/login
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/admin-users/{id}:
+    get:
+      tags:
+      - adminUsers
+      summary: GET /api/admin-users/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - adminUsers
+      summary: PUT /api/admin-users/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - adminUsers
+      summary: DELETE /api/admin-users/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/calculadora/buscar:
+    post:
+      tags:
+      - calculadora
+      summary: POST /api/calculadora/buscar
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/clientes:
+    get:
+      tags:
+      - clientes
+      summary: GET /api/clientes
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - clientes
+      summary: POST /api/clientes
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/clientes/{id}:
+    get:
+      tags:
+      - clientes
+      summary: GET /api/clientes/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - clientes
+      summary: PUT /api/clientes/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - clientes
+      summary: DELETE /api/clientes/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/cotizaciones:
+    get:
+      tags:
+      - cotizaciones
+      summary: GET /api/cotizaciones
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - cotizaciones
+      summary: POST /api/cotizaciones
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/cotizaciones/{id}:
+    get:
+      tags:
+      - cotizaciones
+      summary: GET /api/cotizaciones/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - cotizaciones
+      summary: PUT /api/cotizaciones/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - cotizaciones
+      summary: DELETE /api/cotizaciones/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/destinos:
+    get:
+      tags:
+      - destinos
+      summary: GET /api/destinos
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - destinos
+      summary: POST /api/destinos
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/destinos/{id}:
+    get:
+      tags:
+      - destinos
+      summary: GET /api/destinos/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - destinos
+      summary: PUT /api/destinos/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - destinos
+      summary: DELETE /api/destinos/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/documentos:
+    get:
+      tags:
+      - documentos
+      summary: GET /api/documentos
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+  /api/documentos/{id}:
+    get:
+      tags:
+      - documentos
+      summary: GET /api/documentos/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/documentos/{id}/aceptar:
+    post:
+      tags:
+      - documentos
+      summary: POST /api/documentos/{id}/aceptar
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/documentos/{id}/descargar:
+    get:
+      tags:
+      - documentos
+      summary: GET /api/documentos/{id}/descargar
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/estadisticas:
+    get:
+      tags:
+      - estadisticas
+      summary: GET /api/estadisticas
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+  /api/health:
+    get:
+      tags:
+      - health
+      summary: GET /api/health
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+  /api/hoteles:
+    get:
+      tags:
+      - hoteles
+      summary: GET /api/hoteles
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - hoteles
+      summary: POST /api/hoteles
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/hoteles/bulk:
+    post:
+      tags:
+      - hoteles
+      summary: POST /api/hoteles/bulk
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/hoteles/{id}:
+    get:
+      tags:
+      - hoteles
+      summary: GET /api/hoteles/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - hoteles
+      summary: PUT /api/hoteles/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - hoteles
+      summary: DELETE /api/hoteles/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/pagos:
+    get:
+      tags:
+      - pagos
+      summary: GET /api/pagos
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - pagos
+      summary: POST /api/pagos
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/pagos/{id}:
+    get:
+      tags:
+      - pagos
+      summary: GET /api/pagos/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - pagos
+      summary: DELETE /api/pagos/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/parametros:
+    get:
+      tags:
+      - parametros
+      summary: GET /api/parametros
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+  /api/parametros/{clave}:
+    get:
+      tags:
+      - parametros
+      summary: GET /api/parametros/{clave}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: clave
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - parametros
+      summary: PUT /api/parametros/{clave}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: clave
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - parametros
+      summary: DELETE /api/parametros/{clave}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: clave
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/pasajeros:
+    get:
+      tags:
+      - pasajeros
+      summary: GET /api/pasajeros
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - pasajeros
+      summary: POST /api/pasajeros
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/pasajeros/{id}:
+    get:
+      tags:
+      - pasajeros
+      summary: GET /api/pasajeros/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - pasajeros
+      summary: PUT /api/pasajeros/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - pasajeros
+      summary: DELETE /api/pasajeros/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/recordatorios:
+    get:
+      tags:
+      - recordatorios
+      summary: GET /api/recordatorios
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - recordatorios
+      summary: POST /api/recordatorios
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/recordatorios/{id}:
+    get:
+      tags:
+      - recordatorios
+      summary: GET /api/recordatorios/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - recordatorios
+      summary: DELETE /api/recordatorios/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/recordatorios/{id}/ejecutar:
+    patch:
+      tags:
+      - recordatorios
+      summary: PATCH /api/recordatorios/{id}/ejecutar
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/reservas:
+    get:
+      tags:
+      - reservas
+      summary: GET /api/reservas
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - reservas
+      summary: POST /api/reservas
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/reservas/{id}:
+    get:
+      tags:
+      - reservas
+      summary: GET /api/reservas/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - reservas
+      summary: PUT /api/reservas/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - reservas
+      summary: DELETE /api/reservas/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/reservas/{id}/cancelar:
+    patch:
+      tags:
+      - reservas
+      summary: PATCH /api/reservas/{id}/cancelar
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/reservas/{id}/confirmar:
+    patch:
+      tags:
+      - reservas
+      summary: PATCH /api/reservas/{id}/confirmar
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/reservas/{id}/contrato:
+    post:
+      tags:
+      - reservas
+      summary: POST /api/reservas/{id}/contrato
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/reservas/{id}/estado:
+    patch:
+      tags:
+      - reservas
+      summary: PATCH /api/reservas/{id}/estado
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/reservas/{id}/pago:
+    patch:
+      tags:
+      - reservas
+      summary: PATCH /api/reservas/{id}/pago
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/reservas/{id}/voucher:
+    post:
+      tags:
+      - reservas
+      summary: POST /api/reservas/{id}/voucher
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/tramos:
+    get:
+      tags:
+      - tramos
+      summary: GET /api/tramos
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - tramos
+      summary: POST /api/tramos
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/tramos/{id}:
+    get:
+      tags:
+      - tramos
+      summary: GET /api/tramos/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - tramos
+      summary: PUT /api/tramos/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - tramos
+      summary: DELETE /api/tramos/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/viajes:
+    get:
+      tags:
+      - viajes
+      summary: GET /api/viajes
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+    post:
+      tags:
+      - viajes
+      summary: POST /api/viajes
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+        '201':
+          description: Creado
+  /api/viajes/{id}:
+    get:
+      tags:
+      - viajes
+      summary: GET /api/viajes/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - viajes
+      summary: PUT /api/viajes/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - viajes
+      summary: DELETE /api/viajes/{id}
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Datos invalidos (validacion Zod)
+        '401':
+          description: No autenticado (si AUTH_ENABLED=true)
+        '404':
+          description: No encontrado
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string

@@ -82,6 +82,16 @@ export const config = {
   pdfshiftApiKey: process.env.PDFSHIFT_API_KEY,
   documentosStorageDir: process.env.DOCUMENTOS_STORAGE_DIR ?? 'storage/documentos',
 
+  // Almacenamiento remoto de documentos (Supabase Storage). Necesario en
+  // plataformas cuyo sistema de archivos es efímero: en el plan gratuito de
+  // Render el disco se reinicia con cada suspensión o redespliegue, así que
+  // los vouchers y contratos emitidos desaparecerían. Si estas dos variables
+  // están definidas, lib/documentos.ts guarda y lee los archivos allí; si no,
+  // sigue usando el disco local exactamente como hasta ahora (desarrollo).
+  supabaseUrl: process.env.SUPABASE_URL,
+  supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
+  documentosBucket: process.env.DOCUMENTOS_BUCKET ?? 'documentos',
+
   // Fase S3 — los vouchers/contratos tienen DNI y fecha de nacimiento
   // (Ley 25.326): ya no se sirven como estático público sin vencimiento.
   // Se firman con HMAC-SHA256(id + exp, DOCS_URL_SECRET) — ver
@@ -98,6 +108,12 @@ export const config = {
   // si n8n no está levantado, no debe romper la respuesta al front.
   n8nWebhookDocumentoUrl:
     process.env.N8N_WEBHOOK_DOCUMENTO_URL ?? 'http://localhost:5678/webhook/documento-emitido',
+
+  // Fase M3 — sirve el build del front React (carpeta `dist` generada por
+  // `npm run build`) directamente desde este Express, con fallback SPA a
+  // index.html. Sin esta variable, el comportamiento no cambia: el back
+  // sigue siendo API-only, como hoy. Ver README.md.
+  frontDistDir: process.env.FRONT_DIST_DIR,
 }
 
 if (!config.pdfshiftApiKey) {

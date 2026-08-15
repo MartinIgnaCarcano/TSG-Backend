@@ -148,7 +148,20 @@ export async function inferirFechasViaje(
   return { fViaje, fRegreso }
 }
 
-/** Arma los recordatorios automáticos (PAGO_SALDO / CHECK_IN / POST_VIAJE) de una reserva nueva. */
+/**
+ * Arma los recordatorios automáticos (PAGO_SALDO / CHECK_IN / POST_VIAJE) de una reserva nueva.
+ *
+ * Limitación conocida (Fase M7): todo el cálculo de fechas acá es aritmética
+ * UTC plana sobre `Date` (sumar/restar días en milisegundos). `Destino.timezone`
+ * existe en el schema (se carga por seed, ej. "America/Argentina/Buenos_Aires")
+ * pero no se usa: CHECK_IN se calcula como "1 día antes de fViaje" en UTC, no
+ * respecto de la hora local del aeropuerto de salida. En la práctica el
+ * corrimiento es de a lo sumo unas horas (nunca cambia el día calendario en
+ * más de ±1), así que no afecta la demo ni el criterio de aceptación de S2,
+ * pero un caso prolijo sería recalcular CHECK_IN con la timezone real del
+ * `Destino` de origen (ej. vía `Intl.DateTimeFormat` o una lib como `date-fns-tz`)
+ * en vez de sumar milisegundos sobre UTC. Documentado como deuda, no resuelto.
+ */
 export function construirRecordatorios(
   reservaId: string,
   montoFinal: number,
@@ -162,7 +175,17 @@ export function construirRecordatorios(
 
   const pendiente = calcularSaldoPendiente(montoFinal, saldoPagado)
   if (pendiente > 0) {
-    recordatorios.push({ reservaId, tipo: TipoRecordatorio.PAGO_SALDO, fechaProgramada: dias(fViaje, -14) })
+    // Fase M7: si "14 días antes del viaje" ya pasó (reserva creada a menos
+    // de 14 días de viajar), no se programa una fecha pasada — se programa
+    // para ahora mismo, así el cron de Flujo3 lo levanta en su próximo tick
+    // en lugar de depender de que "fechaProgramada <= ahora" lo capture por
+    // casualidad. Antes (ver test de S2) se dejaba la fecha pasada tal cual;
+    // este cambio hace explícito el comportamiento en vez de dejarlo como
+    // efecto colateral del cron.
+    const fechaCalculada = dias(fViaje, -14)
+    const ahora = new Date()
+    const fechaProgramada = fechaCalculada < ahora ? ahora : fechaCalculada
+    recordatorios.push({ reservaId, tipo: TipoRecordatorio.PAGO_SALDO, fechaProgramada })
   }
 
   recordatorios.push({ reservaId, tipo: TipoRecordatorio.CHECK_IN, fechaProgramada: dias(fViaje, -1) })

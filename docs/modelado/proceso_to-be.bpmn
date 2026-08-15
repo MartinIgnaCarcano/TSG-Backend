@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="http://stg.utnfrm/tesis" id="Defs_proc_tobe">
+  <bpmn:collaboration id="Collab_proc_tobe">
+    <bpmn:participant id="Part_proc_tobe" name="STG — Proceso comercial automatizado (to-be)" processRef="proc_tobe" />
+  </bpmn:collaboration>
+  <bpmn:process id="proc_tobe" isExecutable="false">
+    <bpmn:laneSet>
+      <bpmn:lane id="l_cli" name="Cliente (WhatsApp)">
+        <bpmn:flowNodeRef>proc_tobe_n1</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="l_orq" name="Orquestación (n8n)">
+        <bpmn:flowNodeRef>proc_tobe_n2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n5</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n6</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n7</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n8</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n9</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n10</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n12</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n16</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n17</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n20</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="l_sis" name="Persistencia (API + PostgreSQL)">
+        <bpmn:flowNodeRef>proc_tobe_n11</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n13</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n14</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n15</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="l_ag" name="Agente de ventas">
+        <bpmn:flowNodeRef>proc_tobe_n18</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_tobe_n19</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="proc_tobe_n1" name="Mensaje del cliente">
+      <bpmn:outgoing>proc_tobe_f1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:receiveTask id="proc_tobe_n2" name="Webhook Twilio
++ validación de firma">
+      <bpmn:incoming>proc_tobe_f1</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f2</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:serviceTask id="proc_tobe_n3" name="Agente LLM: extracción
+de entidades">
+      <bpmn:incoming>proc_tobe_f2</bpmn:incoming>
+      <bpmn:incoming>proc_tobe_f5</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f3</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="proc_tobe_n4" name="¿Datos completos?">
+      <bpmn:incoming>proc_tobe_f3</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f4</bpmn:outgoing>
+      <bpmn:outgoing>proc_tobe_f6</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sendTask id="proc_tobe_n5" name="Solicitar dato faltante">
+      <bpmn:incoming>proc_tobe_f4</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f5</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:parallelGateway id="proc_tobe_n6" name="">
+      <bpmn:incoming>proc_tobe_f6</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f7</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:serviceTask id="proc_tobe_n7" name="Búsqueda tarifaria
+(3 variantes de fecha)">
+      <bpmn:incoming>proc_tobe_f7</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f8</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="proc_tobe_n8" name="Smart Optimizer:
+comparativa y mejor precio">
+      <bpmn:incoming>proc_tobe_f8</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f9</bpmn:outgoing>
+      <bpmn:outgoing>proc_tobe_f20</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sendTask id="proc_tobe_n9" name="Envío de comparativa
+(Twilio)">
+      <bpmn:incoming>proc_tobe_f9</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f10</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:receiveTask id="proc_tobe_n10" name="Selección del cliente">
+      <bpmn:incoming>proc_tobe_f10</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f11</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:serviceTask id="proc_tobe_n11" name="Alta de cliente y cotización
+(API REST)">
+      <bpmn:incoming>proc_tobe_f11</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f12</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sendTask id="proc_tobe_n12" name="Envío de cotización
+por correo">
+      <bpmn:incoming>proc_tobe_f12</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f13</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:serviceTask id="proc_tobe_n13" name="Alta de reserva
+(máquina de estados)">
+      <bpmn:incoming>proc_tobe_f13</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f14</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="proc_tobe_n14" name="Registro de pagos
+y conciliación de saldo">
+      <bpmn:incoming>proc_tobe_f14</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f15</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="proc_tobe_n15" name="Generación de voucher
+y contrato (Puppeteer)">
+      <bpmn:incoming>proc_tobe_f15</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f16</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:intermediateCatchEvent id="proc_tobe_n16" name="Cron de recordatorios">
+      <bpmn:incoming>proc_tobe_f16</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f17</bpmn:outgoing>
+<bpmn:timerEventDefinition id="proc_tobe_n16_td" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:sendTask id="proc_tobe_n17" name="Notificaciones proactivas
+(voucher, clima)">
+      <bpmn:incoming>proc_tobe_f17</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f18</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:userTask id="proc_tobe_n18" name="Soporte en ruta">
+      <bpmn:incoming>proc_tobe_f18</bpmn:incoming>
+      <bpmn:outgoing>proc_tobe_f19</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sendTask id="proc_tobe_n19" name="Alerta de oportunidad
+al equipo comercial">
+      <bpmn:incoming>proc_tobe_f20</bpmn:incoming>
+    </bpmn:sendTask>
+    <bpmn:endEvent id="proc_tobe_n20" name="Viaje finalizado">
+      <bpmn:incoming>proc_tobe_f19</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="proc_tobe_f1" sourceRef="proc_tobe_n1" targetRef="proc_tobe_n2" />
+    <bpmn:sequenceFlow id="proc_tobe_f2" sourceRef="proc_tobe_n2" targetRef="proc_tobe_n3" />
+    <bpmn:sequenceFlow id="proc_tobe_f3" sourceRef="proc_tobe_n3" targetRef="proc_tobe_n4" />
+    <bpmn:sequenceFlow id="proc_tobe_f4" sourceRef="proc_tobe_n4" targetRef="proc_tobe_n5" name="no" />
+    <bpmn:sequenceFlow id="proc_tobe_f5" sourceRef="proc_tobe_n5" targetRef="proc_tobe_n3" name="nuevo turno" />
+    <bpmn:sequenceFlow id="proc_tobe_f6" sourceRef="proc_tobe_n4" targetRef="proc_tobe_n6" name="sí" />
+    <bpmn:sequenceFlow id="proc_tobe_f7" sourceRef="proc_tobe_n6" targetRef="proc_tobe_n7" />
+    <bpmn:sequenceFlow id="proc_tobe_f8" sourceRef="proc_tobe_n7" targetRef="proc_tobe_n8" />
+    <bpmn:sequenceFlow id="proc_tobe_f9" sourceRef="proc_tobe_n8" targetRef="proc_tobe_n9" />
+    <bpmn:sequenceFlow id="proc_tobe_f10" sourceRef="proc_tobe_n9" targetRef="proc_tobe_n10" />
+    <bpmn:sequenceFlow id="proc_tobe_f11" sourceRef="proc_tobe_n10" targetRef="proc_tobe_n11" />
+    <bpmn:sequenceFlow id="proc_tobe_f12" sourceRef="proc_tobe_n11" targetRef="proc_tobe_n12" />
+    <bpmn:sequenceFlow id="proc_tobe_f13" sourceRef="proc_tobe_n12" targetRef="proc_tobe_n13" />
+    <bpmn:sequenceFlow id="proc_tobe_f14" sourceRef="proc_tobe_n13" targetRef="proc_tobe_n14" />
+    <bpmn:sequenceFlow id="proc_tobe_f15" sourceRef="proc_tobe_n14" targetRef="proc_tobe_n15" />
+    <bpmn:sequenceFlow id="proc_tobe_f16" sourceRef="proc_tobe_n15" targetRef="proc_tobe_n16" />
+    <bpmn:sequenceFlow id="proc_tobe_f17" sourceRef="proc_tobe_n16" targetRef="proc_tobe_n17" />
+    <bpmn:sequenceFlow id="proc_tobe_f18" sourceRef="proc_tobe_n17" targetRef="proc_tobe_n18" />
+    <bpmn:sequenceFlow id="proc_tobe_f19" sourceRef="proc_tobe_n18" targetRef="proc_tobe_n20" />
+    <bpmn:sequenceFlow id="proc_tobe_f20" sourceRef="proc_tobe_n8" targetRef="proc_tobe_n19" name="ahorro ≥ umbral" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diag">
+    <bpmndi:BPMNPlane id="Plane" bpmnElement="Collab_proc_tobe">
+      <bpmndi:BPMNShape id="Part_proc_tobe_di" bpmnElement="Part_proc_tobe" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="3620" height="640" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="l_cli_di" bpmnElement="l_cli" isHorizontal="true">
+        <dc:Bounds x="150" y="80" width="3590" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="l_orq_di" bpmnElement="l_orq" isHorizontal="true">
+        <dc:Bounds x="150" y="240" width="3590" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="l_sis_di" bpmnElement="l_sis" isHorizontal="true">
+        <dc:Bounds x="150" y="400" width="3590" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="l_ag_di" bpmnElement="l_ag" isHorizontal="true">
+        <dc:Bounds x="150" y="560" width="3590" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n1_di" bpmnElement="proc_tobe_n1">
+        <dc:Bounds x="182" y="142" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n2_di" bpmnElement="proc_tobe_n2">
+        <dc:Bounds x="315" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n3_di" bpmnElement="proc_tobe_n3">
+        <dc:Bounds x="505" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n4_di" bpmnElement="proc_tobe_n4">
+        <dc:Bounds x="745" y="295" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n5_di" bpmnElement="proc_tobe_n5">
+        <dc:Bounds x="695" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n6_di" bpmnElement="proc_tobe_n6">
+        <dc:Bounds x="935" y="295" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n7_di" bpmnElement="proc_tobe_n7">
+        <dc:Bounds x="1075" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n8_di" bpmnElement="proc_tobe_n8">
+        <dc:Bounds x="1265" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n9_di" bpmnElement="proc_tobe_n9">
+        <dc:Bounds x="1455" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n10_di" bpmnElement="proc_tobe_n10">
+        <dc:Bounds x="1645" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n11_di" bpmnElement="proc_tobe_n11">
+        <dc:Bounds x="1835" y="440" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n12_di" bpmnElement="proc_tobe_n12">
+        <dc:Bounds x="2025" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n13_di" bpmnElement="proc_tobe_n13">
+        <dc:Bounds x="2215" y="440" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n14_di" bpmnElement="proc_tobe_n14">
+        <dc:Bounds x="2405" y="440" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n15_di" bpmnElement="proc_tobe_n15">
+        <dc:Bounds x="2595" y="440" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n16_di" bpmnElement="proc_tobe_n16">
+        <dc:Bounds x="2842" y="302" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n17_di" bpmnElement="proc_tobe_n17">
+        <dc:Bounds x="2975" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n18_di" bpmnElement="proc_tobe_n18">
+        <dc:Bounds x="3165" y="600" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n19_di" bpmnElement="proc_tobe_n19">
+        <dc:Bounds x="1265" y="600" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_tobe_n20_di" bpmnElement="proc_tobe_n20">
+        <dc:Bounds x="3412" y="302" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="proc_tobe_f1_di" bpmnElement="proc_tobe_f1">
+        <di:waypoint x="218" y="160" />
+        <di:waypoint x="390" y="160" />
+        <di:waypoint x="390" y="280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f2_di" bpmnElement="proc_tobe_f2">
+        <di:waypoint x="465" y="320" />
+        <di:waypoint x="505" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f3_di" bpmnElement="proc_tobe_f3">
+        <di:waypoint x="655" y="320" />
+        <di:waypoint x="770" y="320" />
+        <di:waypoint x="770" y="295" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f4_di" bpmnElement="proc_tobe_f4">
+        <di:waypoint x="795" y="320" />
+        <di:waypoint x="770" y="320" />
+        <di:waypoint x="770" y="280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f5_di" bpmnElement="proc_tobe_f5">
+        <di:waypoint x="845" y="320" />
+        <di:waypoint x="505" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f6_di" bpmnElement="proc_tobe_f6">
+        <di:waypoint x="795" y="320" />
+        <di:waypoint x="935" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f7_di" bpmnElement="proc_tobe_f7">
+        <di:waypoint x="985" y="320" />
+        <di:waypoint x="1150" y="320" />
+        <di:waypoint x="1150" y="280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f8_di" bpmnElement="proc_tobe_f8">
+        <di:waypoint x="1225" y="320" />
+        <di:waypoint x="1265" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f9_di" bpmnElement="proc_tobe_f9">
+        <di:waypoint x="1415" y="320" />
+        <di:waypoint x="1455" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f10_di" bpmnElement="proc_tobe_f10">
+        <di:waypoint x="1605" y="320" />
+        <di:waypoint x="1645" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f11_di" bpmnElement="proc_tobe_f11">
+        <di:waypoint x="1795" y="320" />
+        <di:waypoint x="1910" y="320" />
+        <di:waypoint x="1910" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f12_di" bpmnElement="proc_tobe_f12">
+        <di:waypoint x="1985" y="480" />
+        <di:waypoint x="2100" y="480" />
+        <di:waypoint x="2100" y="280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f13_di" bpmnElement="proc_tobe_f13">
+        <di:waypoint x="2175" y="320" />
+        <di:waypoint x="2290" y="320" />
+        <di:waypoint x="2290" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f14_di" bpmnElement="proc_tobe_f14">
+        <di:waypoint x="2365" y="480" />
+        <di:waypoint x="2405" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f15_di" bpmnElement="proc_tobe_f15">
+        <di:waypoint x="2555" y="480" />
+        <di:waypoint x="2595" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f16_di" bpmnElement="proc_tobe_f16">
+        <di:waypoint x="2745" y="480" />
+        <di:waypoint x="2860" y="480" />
+        <di:waypoint x="2860" y="302" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f17_di" bpmnElement="proc_tobe_f17">
+        <di:waypoint x="2878" y="320" />
+        <di:waypoint x="3050" y="320" />
+        <di:waypoint x="3050" y="280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f18_di" bpmnElement="proc_tobe_f18">
+        <di:waypoint x="3125" y="320" />
+        <di:waypoint x="3240" y="320" />
+        <di:waypoint x="3240" y="600" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f19_di" bpmnElement="proc_tobe_f19">
+        <di:waypoint x="3315" y="640" />
+        <di:waypoint x="3430" y="640" />
+        <di:waypoint x="3430" y="302" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_tobe_f20_di" bpmnElement="proc_tobe_f20">
+        <di:waypoint x="1415" y="320" />
+        <di:waypoint x="1340" y="320" />
+        <di:waypoint x="1340" y="600" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

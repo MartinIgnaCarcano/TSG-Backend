@@ -77,7 +77,11 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', validateBody(crearClienteSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { nombre, apellido, telefono, email } = req.body
-    const numeroCliente = `CLI-${Date.now()}`
+    // Paridad con el front vanilla: permite fijar el # cliente a mano;
+    // si no vino (u ocurre choque de unique), se autogenera. El choque de
+    // unique en `numeroCliente` provisto a mano lo resuelve el handler
+    // global de errores (P2002 -> 409).
+    const numeroCliente = (req.body.numeroCliente as string | undefined)?.trim() || `CLI-${Date.now()}`
     const cliente = await prisma.cliente.create({
       data: { nombre, apellido, telefono, email, numeroCliente },
     })
@@ -115,4 +119,3 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 })
 
 export default router
-

@@ -1,0 +1,130 @@
+{
+  "name": "STG Flujo 5 — Actualización del dólar (cron 7AM)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "5aaa0001-0000-0000-0000-000000000001",
+      "name": "Cron 7:00 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://dolarapi.com/v1/dolares",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "5aaa0002-0000-0000-0000-000000000002",
+      "name": "GET dolarapi.com",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// La API devuelve un array con { nombre, casa, compra, venta, ... }\nconst data = Array.isArray($json) ? $json : ($json.data || []);\n\nfunction find(casa) {\n  return data.find(d => (d.casa || '').toLowerCase() === casa) || null;\n}\n\nconst oficial = find('oficial');\nconst blue = find('blue');\nconst tarjeta = find('tarjeta');\n\nconst items = [];\nif (oficial) items.push({ clave: 'USD_OFICIAL', valor: String(oficial.venta), descripcion: `Dólar oficial venta — actualizado ${new Date().toISOString().slice(0,10)}` });\nif (blue)    items.push({ clave: 'USD_BLUE',    valor: String(blue.venta),    descripcion: `Dólar blue venta — actualizado ${new Date().toISOString().slice(0,10)}` });\nif (tarjeta) items.push({ clave: 'USD_TARJETA', valor: String(tarjeta.venta), descripcion: `Dólar tarjeta venta — actualizado ${new Date().toISOString().slice(0,10)}` });\n\nreturn items.map(i => ({ json: i }));"
+      },
+      "id": "5aaa0003-0000-0000-0000-000000000003",
+      "name": "Extraer cotizaciones",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.API_BASE }}/api/parametros/{{ $json.clave }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ valor: $json.valor, descripcion: $json.descripcion }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.N8N_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "5aaa0004-0000-0000-0000-000000000004",
+      "name": "PUT parametro en back",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Cron 7:00 AM": {
+      "main": [
+        [
+          {
+            "node": "GET dolarapi.com",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET dolarapi.com": {
+      "main": [
+        [
+          {
+            "node": "Extraer cotizaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer cotizaciones": {
+      "main": [
+        [
+          {
+            "node": "PUT parametro en back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "stg"
+    },
+    {
+      "name": "dolar"
+    }
+  ],
+  "active": false
+}

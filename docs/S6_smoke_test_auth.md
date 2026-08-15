@@ -9,7 +9,7 @@ Réplica del backend (mismo `src/`, mismo `prisma/schema.prisma`, mismas migraci
 
 ```
 AUTH_ENABLED=true
-N8N_API_KEY=47e7b5c2a411bac09ad3ca5c29f97213bf2e7d7fdaa00eae   (la misma que .env)
+N8N_API_KEY=<la misma que .env>
 JWT_SECRET=<la misma que .env>
 ```
 

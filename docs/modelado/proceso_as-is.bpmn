@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="http://stg.utnfrm/tesis" id="Defs_proc_asis">
+  <bpmn:collaboration id="Collab_proc_asis">
+    <bpmn:participant id="Part_proc_asis" name="STG — Proceso comercial actual (as-is)" processRef="proc_asis" />
+  </bpmn:collaboration>
+  <bpmn:process id="proc_asis" isExecutable="false">
+    <bpmn:laneSet>
+      <bpmn:lane id="lane_cli" name="Cliente">
+        <bpmn:flowNodeRef>proc_asis_n1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n6</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n7</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_ag" name="Agente de ventas">
+        <bpmn:flowNodeRef>proc_asis_n2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n5</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n8</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n9</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n10</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n11</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n13</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>proc_asis_n14</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_prov" name="Proveedor externo">
+        <bpmn:flowNodeRef>proc_asis_n12</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="proc_asis_n1" name="Consulta del cliente">
+      <bpmn:outgoing>proc_asis_f1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:manualTask id="proc_asis_n2" name="1. Recepción del lead
+(WhatsApp)">
+      <bpmn:incoming>proc_asis_f1</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f2</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:manualTask id="proc_asis_n3" name="2. Validación de inventario
+(portales mayoristas)">
+      <bpmn:incoming>proc_asis_f2</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f3</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:manualTask id="proc_asis_n4" name="Armado manual de
+cotización">
+      <bpmn:incoming>proc_asis_f3</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f4</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:manualTask id="proc_asis_n5" name="Envío de cotización
+(WhatsApp / mail)">
+      <bpmn:incoming>proc_asis_f4</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f5</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:exclusiveGateway id="proc_asis_n6" name="¿Acepta?">
+      <bpmn:incoming>proc_asis_f5</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f6</bpmn:outgoing>
+      <bpmn:outgoing>proc_asis_f7</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="proc_asis_n7" name="Lead perdido">
+      <bpmn:incoming>proc_asis_f6</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:manualTask id="proc_asis_n8" name="3. Gestión de señas y pagos
+(transferencia)">
+      <bpmn:incoming>proc_asis_f7</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f8</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:manualTask id="proc_asis_n9" name="4. Formalización y contrato
+(Word / PDF)">
+      <bpmn:incoming>proc_asis_f8</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f9</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:manualTask id="proc_asis_n10" name="5. Control de vencimientos
+y saldos (Excel)">
+      <bpmn:incoming>proc_asis_f9</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f10</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:manualTask id="proc_asis_n11" name="6. Emisión de documentación
+(Word / correo)">
+      <bpmn:incoming>proc_asis_f10</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f11</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:task id="proc_asis_n12" name="7. Ejecución del servicio">
+      <bpmn:incoming>proc_asis_f11</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f12</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:manualTask id="proc_asis_n13" name="8. Soporte en ruta
+(WhatsApp)">
+      <bpmn:incoming>proc_asis_f12</bpmn:incoming>
+      <bpmn:outgoing>proc_asis_f13</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:endEvent id="proc_asis_n14" name="Viaje finalizado">
+      <bpmn:incoming>proc_asis_f13</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="proc_asis_f1" sourceRef="proc_asis_n1" targetRef="proc_asis_n2" />
+    <bpmn:sequenceFlow id="proc_asis_f2" sourceRef="proc_asis_n2" targetRef="proc_asis_n3" />
+    <bpmn:sequenceFlow id="proc_asis_f3" sourceRef="proc_asis_n3" targetRef="proc_asis_n4" />
+    <bpmn:sequenceFlow id="proc_asis_f4" sourceRef="proc_asis_n4" targetRef="proc_asis_n5" />
+    <bpmn:sequenceFlow id="proc_asis_f5" sourceRef="proc_asis_n5" targetRef="proc_asis_n6" />
+    <bpmn:sequenceFlow id="proc_asis_f6" sourceRef="proc_asis_n6" targetRef="proc_asis_n7" name="no" />
+    <bpmn:sequenceFlow id="proc_asis_f7" sourceRef="proc_asis_n6" targetRef="proc_asis_n8" name="sí" />
+    <bpmn:sequenceFlow id="proc_asis_f8" sourceRef="proc_asis_n8" targetRef="proc_asis_n9" />
+    <bpmn:sequenceFlow id="proc_asis_f9" sourceRef="proc_asis_n9" targetRef="proc_asis_n10" />
+    <bpmn:sequenceFlow id="proc_asis_f10" sourceRef="proc_asis_n10" targetRef="proc_asis_n11" />
+    <bpmn:sequenceFlow id="proc_asis_f11" sourceRef="proc_asis_n11" targetRef="proc_asis_n12" />
+    <bpmn:sequenceFlow id="proc_asis_f12" sourceRef="proc_asis_n12" targetRef="proc_asis_n13" />
+    <bpmn:sequenceFlow id="proc_asis_f13" sourceRef="proc_asis_n13" targetRef="proc_asis_n14" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diag">
+    <bpmndi:BPMNPlane id="Plane" bpmnElement="Collab_proc_asis">
+      <bpmndi:BPMNShape id="Part_proc_asis_di" bpmnElement="Part_proc_asis" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="2670" height="480" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_cli_di" bpmnElement="lane_cli" isHorizontal="true">
+        <dc:Bounds x="150" y="80" width="2640" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_ag_di" bpmnElement="lane_ag" isHorizontal="true">
+        <dc:Bounds x="150" y="240" width="2640" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_prov_di" bpmnElement="lane_prov" isHorizontal="true">
+        <dc:Bounds x="150" y="400" width="2640" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n1_di" bpmnElement="proc_asis_n1">
+        <dc:Bounds x="182" y="142" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n2_di" bpmnElement="proc_asis_n2">
+        <dc:Bounds x="315" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n3_di" bpmnElement="proc_asis_n3">
+        <dc:Bounds x="505" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n4_di" bpmnElement="proc_asis_n4">
+        <dc:Bounds x="695" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n5_di" bpmnElement="proc_asis_n5">
+        <dc:Bounds x="885" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n6_di" bpmnElement="proc_asis_n6">
+        <dc:Bounds x="1125" y="135" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n7_di" bpmnElement="proc_asis_n7">
+        <dc:Bounds x="1322" y="142" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n8_di" bpmnElement="proc_asis_n8">
+        <dc:Bounds x="1265" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n9_di" bpmnElement="proc_asis_n9">
+        <dc:Bounds x="1455" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n10_di" bpmnElement="proc_asis_n10">
+        <dc:Bounds x="1645" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n11_di" bpmnElement="proc_asis_n11">
+        <dc:Bounds x="1835" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n12_di" bpmnElement="proc_asis_n12">
+        <dc:Bounds x="2025" y="440" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n13_di" bpmnElement="proc_asis_n13">
+        <dc:Bounds x="2215" y="280" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="proc_asis_n14_di" bpmnElement="proc_asis_n14">
+        <dc:Bounds x="2462" y="302" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="proc_asis_f1_di" bpmnElement="proc_asis_f1">
+        <di:waypoint x="218" y="160" />
+        <di:waypoint x="390" y="160" />
+        <di:waypoint x="390" y="280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f2_di" bpmnElement="proc_asis_f2">
+        <di:waypoint x="465" y="320" />
+        <di:waypoint x="505" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f3_di" bpmnElement="proc_asis_f3">
+        <di:waypoint x="655" y="320" />
+        <di:waypoint x="695" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f4_di" bpmnElement="proc_asis_f4">
+        <di:waypoint x="845" y="320" />
+        <di:waypoint x="885" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f5_di" bpmnElement="proc_asis_f5">
+        <di:waypoint x="1035" y="320" />
+        <di:waypoint x="1150" y="320" />
+        <di:waypoint x="1150" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f6_di" bpmnElement="proc_asis_f6">
+        <di:waypoint x="1175" y="160" />
+        <di:waypoint x="1340" y="160" />
+        <di:waypoint x="1340" y="142" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f7_di" bpmnElement="proc_asis_f7">
+        <di:waypoint x="1175" y="160" />
+        <di:waypoint x="1340" y="160" />
+        <di:waypoint x="1340" y="280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f8_di" bpmnElement="proc_asis_f8">
+        <di:waypoint x="1415" y="320" />
+        <di:waypoint x="1455" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f9_di" bpmnElement="proc_asis_f9">
+        <di:waypoint x="1605" y="320" />
+        <di:waypoint x="1645" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f10_di" bpmnElement="proc_asis_f10">
+        <di:waypoint x="1795" y="320" />
+        <di:waypoint x="1835" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f11_di" bpmnElement="proc_asis_f11">
+        <di:waypoint x="1985" y="320" />
+        <di:waypoint x="2100" y="320" />
+        <di:waypoint x="2100" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f12_di" bpmnElement="proc_asis_f12">
+        <di:waypoint x="2175" y="480" />
+        <di:waypoint x="2290" y="480" />
+        <di:waypoint x="2290" y="280" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="proc_asis_f13_di" bpmnElement="proc_asis_f13">
+        <di:waypoint x="2365" y="320" />
+        <di:waypoint x="2480" y="320" />
+        <di:waypoint x="2480" y="302" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

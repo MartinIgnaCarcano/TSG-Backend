@@ -1,0 +1,104 @@
+%% Diagrama de secuencia UML — ciclo cotización → reserva → documentación
+%% Tesis STG — hallazgo A-10 de la auditoría
+%% Render: https://mermaid.live  o extensión Mermaid de VS Code
+
+sequenceDiagram
+    autonumber
+    actor C as Cliente
+    participant TW as Twilio<br/>(WhatsApp)
+    participant N8 as n8n<br/>(orquestación)
+    participant GQ as Groq<br/>(Llama 3.3)
+    participant RA as Proveedor tarifario<br/>(RapidAPI)
+    participant API as Backend REST<br/>(Node/TS)
+    participant DB as PostgreSQL
+    participant PP as Puppeteer
+    participant SM as SMTP
+
+    Note over C,SM: Fase 1 — Extracción de entidades (turnos conversacionales)
+
+    C->>TW: "Quiero viajar a Madrid"
+    TW->>N8: POST /webhook (firma X-Twilio-Signature)
+    N8->>N8: Validar firma → 403 si no verifica
+    N8->>GQ: chat.completions (system prompt + memoria de ventana)
+    GQ-->>N8: respuesta (texto o JSON)
+
+    alt Datos incompletos
+        N8->>TW: Solicitar dato faltante
+        TW-->>C: "¿Desde qué ciudad salís?"
+        C->>TW: "Desde Mendoza"
+        Note right of N8: Se repite hasta completar<br/>origen, destino y fechas
+    else Datos completos
+        N8->>N8: Parsear JSON<br/>{origenIATA, destinoIATA, fechaIda, fechaVuelta}
+    end
+
+    Note over C,SM: Fase 2 — Comparativa tarifaria
+
+    N8->>N8: Generar 3 variantes de fecha (−3, 0, +3 días)
+    par Búsqueda en paralelo
+        N8->>RA: GET vuelos (fecha −3)
+    and
+        N8->>RA: GET vuelos (fecha original)
+    and
+        N8->>RA: GET vuelos (fecha +3)
+    end
+    RA-->>N8: itinerarios y precios
+    N8->>N8: Smart Optimizer: emparejar por fecha,<br/>marcar mejor precio, aplicar umbral de ahorro
+    N8->>TW: Comparativa formateada
+    TW-->>C: Mensaje con opciones numeradas
+
+    opt Ahorro ≥ umbral configurado
+        N8->>TW: Alerta al equipo comercial
+    end
+
+    Note over C,SM: Fase 3 — Cotización y persistencia
+
+    C->>TW: "1 | Juan Pérez | juan@mail.com"
+    TW->>N8: POST /webhook
+    N8->>N8: Recuperar comparativa del estado (TTL)
+    N8->>API: POST /api/clientes (buscar o crear)
+    API->>DB: upsert Cliente
+    DB-->>API: id
+    N8->>API: POST /api/cotizaciones
+    API->>API: Validación Zod
+    API->>DB: INSERT Cotizacion (snapshot de precios)
+    DB-->>API: cotización
+    API-->>N8: 201 Created
+    N8->>SM: Enviar cotización por correo
+    SM-->>C: Correo con la cotización
+
+    Note over C,SM: Fase 4 — Reserva, pagos y documentación
+
+    C->>API: Confirmación (vía panel administrativo)
+    API->>DB: INSERT Reserva (estado EN_PROCESO)
+    API->>API: construirRecordatorios()
+    API->>DB: INSERT Recordatorio (PAGO_SALDO, CHECK_IN, POST_VIAJE)
+
+    loop Por cada pago registrado
+        API->>DB: INSERT Pago (transacción atómica)
+        API->>API: calcularSaldoPendiente()
+        alt Saldo cubierto
+            API->>API: transicionarEstado(→ PAGADA)
+            API->>DB: UPDATE condicionado al estado leído
+            Note right of API: updateMany con guarda:<br/>0 filas ⇒ TransicionInvalidaError<br/>(bloqueo optimista)
+        else Pago parcial
+            API->>API: transicionarEstado(→ SEÑADA)
+        end
+    end
+
+    API->>PP: Renderizar voucher y contrato (Chromium local)
+    PP-->>API: PDF
+    API->>DB: INSERT DocumentoGenerado (hash de integridad)
+    API->>API: transicionarEstado(PAGADA → DOCUMENTADA)
+    API->>DB: UPDATE Reserva
+
+    Note over C,SM: Fase 5 — Notificaciones proactivas
+
+    N8->>N8: Cron programado
+    N8->>API: GET /api/recordatorios?pendientes
+    API->>DB: SELECT Recordatorio WHERE ejecutado = false
+    DB-->>API: recordatorios vencidos
+    API-->>N8: lista
+    N8->>TW: Envío de recordatorio
+    TW-->>C: Voucher / condiciones meteorológicas
+    N8->>API: PATCH /api/recordatorios/:id (marcar ejecutado)
+    API->>DB: UPDATE (deduplicación ante reintentos)

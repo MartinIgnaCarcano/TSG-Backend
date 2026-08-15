@@ -118,17 +118,44 @@ describe('construirRecordatorios', () => {
     expect(recordatorios).toEqual([])
   })
 
+  // El reloj se fija porque construirRecordatorios adelanta a "ahora" toda
+  // fecha de PAGO_SALDO que ya haya pasado (clamp de la Fase M7). Sin fijar
+  // el reloj, el test aprueba hasta el 18/7/2026 y falla a partir de esa
+  // fecha, que es lo que ocurría antes de este cambio.
   it('con fechaViaje y saldo pendiente genera PAGO_SALDO (14 días antes) y CHECK_IN (1 día antes)', () => {
-    const fViaje = new Date('2026-08-01T00:00:00.000Z')
-    const recordatorios = construirRecordatorios('r1', 1000, 0, fViaje, undefined)
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-01T00:00:00.000Z'))
+    try {
+      const fViaje = new Date('2026-08-01T00:00:00.000Z')
+      const recordatorios = construirRecordatorios('r1', 1000, 0, fViaje, undefined)
 
-    const pagoSaldo = recordatorios.find((r) => r.tipo === TipoRecordatorio.PAGO_SALDO)
-    const checkIn = recordatorios.find((r) => r.tipo === TipoRecordatorio.CHECK_IN)
+      const pagoSaldo = recordatorios.find((r) => r.tipo === TipoRecordatorio.PAGO_SALDO)
+      const checkIn = recordatorios.find((r) => r.tipo === TipoRecordatorio.CHECK_IN)
 
-    expect(pagoSaldo).toBeDefined()
-    expect(pagoSaldo!.fechaProgramada).toEqual(new Date('2026-07-18T00:00:00.000Z'))
-    expect(checkIn).toBeDefined()
-    expect(checkIn!.fechaProgramada).toEqual(new Date('2026-07-31T00:00:00.000Z'))
+      expect(pagoSaldo).toBeDefined()
+      expect(pagoSaldo!.fechaProgramada).toEqual(new Date('2026-07-18T00:00:00.000Z'))
+      expect(checkIn).toBeDefined()
+      expect(checkIn!.fechaProgramada).toEqual(new Date('2026-07-31T00:00:00.000Z'))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('adelanta PAGO_SALDO a "ahora" si los 14 días previos ya pasaron (clamp de la Fase M7)', () => {
+    vi.useFakeTimers()
+    const ahora = new Date('2026-07-25T10:00:00.000Z')
+    vi.setSystemTime(ahora)
+    try {
+      // Viaje en 7 días: "14 días antes" cae en el pasado.
+      const fViaje = new Date('2026-08-01T00:00:00.000Z')
+      const recordatorios = construirRecordatorios('r1', 1000, 0, fViaje, undefined)
+      const pagoSaldo = recordatorios.find((r) => r.tipo === TipoRecordatorio.PAGO_SALDO)
+
+      expect(pagoSaldo).toBeDefined()
+      expect(pagoSaldo!.fechaProgramada).toEqual(ahora)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('sin saldo pendiente (reserva ya pagada) NO genera PAGO_SALDO', () => {
@@ -154,20 +181,23 @@ describe('construirRecordatorios', () => {
     expect(recordatorios.find((r) => r.tipo === TipoRecordatorio.POST_VIAJE)).toBeUndefined()
   })
 
-  it('reserva creada a menos de 14 días del viaje: decisión documentada — se programa igual con fecha pasada, no se omite ni se corre a "hoy"', () => {
-    // El código actual (construirRecordatorios) no compara fViaje-14 contra
-    // "ahora": siempre calcula dias(fViaje, -14) sin chequear si cae en el
-    // pasado. Se documenta como decisión consciente: el cron que procesa
-    // recordatorios (Flujo3) toma todo lo que tenga fechaProgramada <= ahora,
-    // así que un recordatorio con fecha pasada se ejecuta en el próximo tick
-    // en vez de perderse. No se creó lógica especial para "hoy".
-    const fViaje = new Date(Date.now() + 5 * 86400000) // viaje en 5 días
+  it('reserva creada a menos de 14 días del viaje: PAGO_SALDO se programa para "hoy" (Fase M7), no queda con fecha pasada', () => {
+    // Antes (Fase S2) construirRecordatorios no comparaba fViaje-14 contra
+    // "ahora": el cálculo daba una fecha pasada y se dejaba así, confiando
+    // en que el cron de Flujo3 ("fechaProgramada <= ahora") lo levantara en
+    // su próximo tick. Fase M7 hace el comportamiento explícito: si
+    // fViaje-14d < ahora, se clampea a "ahora".
+    const fViaje = new Date(Date.now() + 5 * 86400000) // viaje en 5 días → fViaje-14d cae en el pasado
+    const antes = Date.now()
     const recordatorios = construirRecordatorios('r1', 1000, 0, fViaje, undefined)
+    const despues = Date.now()
     const pagoSaldo = recordatorios.find((r) => r.tipo === TipoRecordatorio.PAGO_SALDO)
 
     expect(pagoSaldo).toBeDefined()
-    expect(pagoSaldo!.fechaProgramada.getTime()).toBeLessThan(Date.now())
-    expect(pagoSaldo!.fechaProgramada).toEqual(new Date(fViaje.getTime() - 14 * 86400000))
+    // No queda en el pasado: cae entre el instante justo antes y justo
+    // después de llamar a la función (clampeado a "ahora").
+    expect(pagoSaldo!.fechaProgramada.getTime()).toBeGreaterThanOrEqual(antes)
+    expect(pagoSaldo!.fechaProgramada.getTime()).toBeLessThanOrEqual(despues)
   })
 })
 

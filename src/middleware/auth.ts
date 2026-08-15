@@ -21,6 +21,8 @@ export interface AuthRequest extends Request {
 // Rutas que siempre quedan públicas, auth habilitada o no.
 const PUBLIC_PATHS: Array<{ method: string; path: string }> = [
   { method: 'GET', path: '/api' },
+  // Fase M4: el monitoreo (y n8n) le pegan a esto sin JWT ni x-api-key.
+  { method: 'GET', path: '/api/health' },
   { method: 'POST', path: '/api/admin-users/login' },
 ]
 
