@@ -23,6 +23,7 @@ import {
   reservarVersionDocumento,
 } from '../services/reservas.service'
 import { parsePaginacion, paginarArray } from '../lib/pagination'
+import { operacionesCarasRateLimit } from '../middleware/rateLimits'
 import { generarNumero } from '../lib/identificadores'
 
 const router = Router()
@@ -295,7 +296,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 // Requiere PAGADA (o DOCUMENTADA, para reemitir/versionar) y al menos un
 // Pasajero cargado. Arma el snapshot, genera el PDF (PDFShift o mock HTML),
 // lo registra en DocumentoGenerado y avanza la reserva a DOCUMENTADA.
-router.post('/:id/voucher', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/voucher', operacionesCarasRateLimit, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = req.params.id as string
     const reserva = await prisma.reserva.findUnique({
@@ -424,7 +425,7 @@ router.post('/:id/voucher', async (req: Request, res: Response, next: NextFuncti
 // sólo requiere que la reserva no esté cancelada y tenga pasajeros cargados.
 // Cada emisión crea una versión nueva; la aceptación se registra aparte
 // vía POST /api/documentos/:id/aceptar.
-router.post('/:id/contrato', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/contrato', operacionesCarasRateLimit, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = req.params.id as string
     const reserva = await prisma.reserva.findUnique({

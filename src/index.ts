@@ -10,6 +10,7 @@ import { ZodError } from 'zod'
 import { config } from './config'
 import { logger } from './lib/logger'
 import { requireAuth } from './middleware/auth'
+import { apiRateLimit, operacionesCarasRateLimit } from './middleware/rateLimits'
 import { TransicionInvalidaError } from './services/reservas.service'
 import clientesRouter from './routes/clientes'
 import viajesRouter from './routes/viajes'
@@ -79,6 +80,11 @@ app.use(
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+// Techo general de peticiones (hallazgo M-1). Va antes de la
+// autenticación para que también cubra los intentos no autenticados, y
+// exceptúa el health check y a los workflows de n8n (ver rateLimits.ts).
+app.use(apiRateLimit)
+
 // Documentos generados (vouchers/contratos) — Fase S3. Ya NO se sirven
 // como estático público: tienen DNI y fecha de nacimiento del pasajero
 // (Ley 25.326) y un estático así no expira ni se puede revocar. Se
@@ -99,7 +105,8 @@ app.use('/api/cotizaciones', cotizacionesRouter)
 app.use('/api/reservas', reservasRouter)
 app.use('/api/admin-users', adminUsersRouter)
 app.use('/api/destinos', destinosRouter)
-app.use('/api/calculadora', calculadoraRouter)
+// La calculadora consume cuota de RapidAPI en cada llamada: límite propio.
+app.use('/api/calculadora', operacionesCarasRateLimit, calculadoraRouter)
 app.use('/api/recordatorios', recordatoriosRouter)
 app.use('/api/parametros', parametrosRouter)
 app.use('/api/hoteles', hotelesRouter)
