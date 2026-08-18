@@ -68,12 +68,18 @@ export const config = {
   mockFlights: optionalBoolean('MOCK_FLIGHTS', false),
 
   // Auth — el login SIEMPRE emite JWT (para que el front lo pueda usar
-  // ya mismo), pero el middleware solo lo EXIGE si AUTH_ENABLED=true.
-  // Default false: no rompe la demo ni los workflows de n8n existentes
-  // hasta que el front (React, Fase R1) sepa mandar el token.
+  // ya mismo), y el middleware lo EXIGE salvo que AUTH_ENABLED=false.
+  //
+  // El default es `true` a propósito (hallazgo C-1 de la auditoría de
+  // ingeniería): olvidarse de una variable de entorno no puede dejar la
+  // API abierta. `GET /api/clientes` devuelve datos personales de todos
+  // los clientes y `GET /api/documentos` devuelve links a vouchers con
+  // DNI y fecha de nacimiento de cada pasajero (Ley 25.326), así que
+  // "abierto" tiene que ser una decisión explícita, no lo que pasa por
+  // defecto. Además, más abajo se prohíbe desactivarlo en producción.
   jwtSecret: required('JWT_SECRET'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '8h',
-  authEnabled: optionalBoolean('AUTH_ENABLED', false),
+  authEnabled: optionalBoolean('AUTH_ENABLED', true),
   // n8n se autentica con esta API key fija (header x-api-key), no con JWT.
   n8nApiKey: process.env.N8N_API_KEY,
 
@@ -134,8 +140,33 @@ if (config.authEnabled && !config.n8nApiKey) {
   )
 }
 
+// Hallazgo C-1: en producción la API no puede quedar abierta. Desactivar
+// la autenticación es un modo de demo local y nada más; si alguien
+// despliega con AUTH_ENABLED=false, el proceso no arranca.
+if (!config.authEnabled && config.nodeEnv === 'production') {
+  throw new Error(
+    '❌ AUTH_ENABLED=false con NODE_ENV=production. La API quedaría abierta y expone datos personales de clientes y pasajeros (Ley 25.326). Sacá AUTH_ENABLED del entorno o ponelo en true.',
+  )
+}
+
 if (!config.authEnabled) {
   console.warn(
-    '⚠️  AUTH_ENABLED=false — la API sigue abierta sin autenticación (modo demo). El login ya emite JWT para cuando se active.',
+    '⚠️  AUTH_ENABLED=false — la API está abierta sin autenticación. Sólo válido para desarrollo local; en producción el arranque falla.',
   )
+}
+
+// Hallazgo M-6: `required()` acepta un secreto de un solo carácter. Un
+// JWT_SECRET o un DOCS_URL_SECRET cortos hacen que la firma se pueda
+// forzar por fuerza bruta, que es justamente lo que estos secretos
+// tienen que impedir.
+const LARGO_MINIMO_SECRETO = 32
+for (const [nombre, valor] of [
+  ['JWT_SECRET', config.jwtSecret],
+  ['DOCS_URL_SECRET', config.docsUrlSecret],
+] as const) {
+  if (valor.length < LARGO_MINIMO_SECRETO) {
+    const mensaje = `${nombre} tiene ${valor.length} caracteres; se esperan al menos ${LARGO_MINIMO_SECRETO}. Generá uno con: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+    if (config.nodeEnv === 'production') throw new Error(`❌ ${mensaje}`)
+    console.warn(`⚠️  ${mensaje}`)
+  }
 }
