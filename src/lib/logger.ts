@@ -13,6 +13,21 @@ const isProd = process.env.NODE_ENV === 'production'
 
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? (isProd ? 'info' : 'debug'),
+  // Hallazgo C-3 de la auditoría de ingeniería: el serializador de
+  // request de pino incluye `headers`, así que cada línea de log de
+  // pino-http escribía el `Authorization: Bearer <jwt>` del admin y la
+  // `x-api-key` de n8n en texto plano. Cualquiera con acceso al panel de
+  // logs se llevaba una sesión válida y la clave de integración. Se
+  // eliminan del log (no se enmascaran: no hay razón para conservarlos).
+  redact: {
+    paths: [
+      'req.headers.authorization',
+      'req.headers["x-api-key"]',
+      'req.headers.cookie',
+      'res.headers["set-cookie"]',
+    ],
+    remove: true,
+  },
   transport: isProd
     ? undefined
     : {
