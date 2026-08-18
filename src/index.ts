@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client'
 import { ZodError } from 'zod'
 import { config } from './config'
 import { logger } from './lib/logger'
+import { prisma } from './lib/prisma'
 import { requireAuth } from './middleware/auth'
 import { apiRateLimit, operacionesCarasRateLimit } from './middleware/rateLimits'
 import { TransicionInvalidaError } from './services/reservas.service'
@@ -233,8 +234,42 @@ server.on('error', (err: any) => {
   process.exit(1)
 })
 
-// Mantener el proceso vivo (fix para Express 5 + ts-node)
-process.on('SIGINT', () => {
-  logger.info('Cerrando servidor...')
-  server.close(() => process.exit(0))
-})
+// Apagado ordenado (hallazgo B-1 de la auditoría de ingeniería).
+//
+// Sólo se manejaba SIGINT (Ctrl+C en la terminal), pero la señal que
+// mandan Docker y Render al redesplegar o al suspender el servicio es
+// SIGTERM: sin este handler, cada redespliegue cortaba de golpe los
+// requests en vuelo y dejaba las conexiones de Prisma abiertas hasta que
+// la base las expiraba. Ahora se deja de aceptar conexiones nuevas, se
+// esperan las que están en curso y recién ahí se cierra el pool.
+//
+// El timeout de guarda existe porque `server.close()` no termina nunca si
+// alguna conexión queda colgada: pasados los 10 segundos, se sale igual.
+// Es preferible a que el orquestador mate el proceso con SIGKILL.
+let cerrando = false
+
+async function apagarOrdenadamente(senal: NodeJS.Signals) {
+  if (cerrando) return
+  cerrando = true
+  logger.info({ senal }, 'Apagando: se dejan de aceptar conexiones nuevas')
+
+  const forzar = setTimeout(() => {
+    logger.warn('El cierre ordenado tardó demasiado; se fuerza la salida')
+    process.exit(1)
+  }, 10_000)
+  forzar.unref()
+
+  server.close(async () => {
+    try {
+      await prisma.$disconnect()
+      logger.info('Conexiones cerradas. Chau.')
+      process.exit(0)
+    } catch (err) {
+      logger.error({ err }, 'Error al cerrar el pool de la base')
+      process.exit(1)
+    }
+  })
+}
+
+process.on('SIGINT', apagarOrdenadamente)
+process.on('SIGTERM', apagarOrdenadamente)
