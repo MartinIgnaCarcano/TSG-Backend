@@ -158,13 +158,16 @@ router.post('/', validateBody(crearReservaSchema), async (req: Request, res: Res
 // PUT /api/reservas/:id
 router.put('/:id', validateBody(actualizarReservaSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { cotizacionId, tipoReserva, montoFinal, saldoPagado, estado, observaciones, motivoCancelacion } = req.body
+    // `saldoPagado` no se acepta acá a propósito (hallazgo A-4): el saldo
+    // sólo se mueve creando o anulando un Pago, para que siempre haya un
+    // registro que lo justifique.
+    const { cotizacionId, tipoReserva, montoFinal, estado, observaciones, motivoCancelacion } = req.body
     const id = req.params.id as string
 
     const reserva = await prisma.$transaction(async (tx) => {
       let actualizada = await tx.reserva.update({
         where: { id },
-        data: { cotizacionId, tipoReserva, montoFinal, saldoPagado, observaciones, motivoCancelacion },
+        data: { cotizacionId, tipoReserva, montoFinal, observaciones, motivoCancelacion },
       })
       // El cambio de estado pasa siempre por la máquina de estados validada,
       // nunca por un `set` directo — así no se pueden saltear pasos desde el PUT genérico.

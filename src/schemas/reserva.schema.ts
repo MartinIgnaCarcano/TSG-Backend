@@ -23,11 +23,17 @@ export const crearReservaSchema = z.object({
   fechaRegreso: z.coerce.date().optional(),
 })
 
+// Hallazgo A-4 de la auditoría de ingeniería: `saldoPagado` ya no se
+// puede escribir por acá. Era la única vía que movía el saldo sin dejar
+// un `Pago` que lo respaldara, y rompía el invariante de la Fase D
+// (`saldoPagado = SUM(pagos activos)`) justo en la plata, que es lo que
+// después imprime el contrato. Para corregir un saldo hay que registrar
+// un pago (POST /api/pagos) o anular el mal cargado (DELETE
+// /api/pagos/:id), que es para lo que existe `anularPago`.
 export const actualizarReservaSchema = z.object({
   cotizacionId: z.string().min(1).optional(),
   tipoReserva: z.enum(['IDA', 'VUELTA', 'IDA_Y_VUELTA']).optional(),
   montoFinal: montoNoNegativo.optional(),
-  saldoPagado: montoNoNegativo.optional(),
   estado: z.enum(ESTADOS_RESERVA).optional(),
   observaciones: z.string().trim().optional().nullable(),
   motivoCancelacion: z.string().trim().optional().nullable(),
