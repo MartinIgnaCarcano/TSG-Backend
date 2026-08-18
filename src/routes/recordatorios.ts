@@ -60,18 +60,42 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // PATCH /api/recordatorios/:id/ejecutar — el Flujo 3 lo llama después de enviar
+//
+// Hallazgo A-6 de la auditoría de ingeniería: era un `update` por id, sin
+// condicionar a que el recordatorio siguiera pendiente. El cron de n8n
+// reintenta ante timeout, así que un mismo recordatorio podía marcarse
+// (y contabilizarse como enviado) dos veces, pisando la fecha y el
+// resultado del envío original. Ahora la escritura es condicional: sólo
+// pasa de pendiente a ejecutado, y una segunda llamada devuelve 200 con
+// `yaEjecutado: true` en vez de volver a escribir. Es un no-op explícito,
+// que es lo que un cliente que reintenta necesita para no reintentar en
+// loop (a diferencia de un 409, que parece un error).
+//
+// Deuda conocida: esto hace idempotente el reintento del PATCH, no el
+// solapamiento de dos corridas del cron. Si dos ticks de Flujo3 leen la
+// lista de pendientes al mismo tiempo, los dos envían el WhatsApp antes
+// de que ninguno marque nada. Cerrar eso requiere que el flujo tome el
+// recordatorio ANTES de enviar (llamar a este endpoint primero y saltear
+// el envío si responde `yaEjecutado: true`), que es un cambio en el
+// workflow, no acá.
 router.patch('/:id/ejecutar', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const id = req.params.id as string
     const { resultado } = req.body
-    const r = await prisma.recordatorio.update({
-      where: { id: req.params.id as string },
+
+    const marcado = await prisma.recordatorio.updateMany({
+      where: { id, ejecutado: false },
       data: {
         ejecutado: true,
         fechaEjecucion: new Date(),
         resultado: resultado || 'OK',
       },
     })
-    res.json(r)
+
+    const r = await prisma.recordatorio.findUnique({ where: { id } })
+    if (!r) return res.status(404).json({ error: 'Recordatorio no encontrado' })
+
+    res.json({ ...r, yaEjecutado: marcado.count === 0 })
   } catch (e) {
     next(e)
   }
