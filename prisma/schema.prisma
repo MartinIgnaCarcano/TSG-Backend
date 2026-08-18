@@ -186,6 +186,14 @@ model Reserva {
   modificacion    DateTime @updatedAt @map("modificacion")
   baja            DateTime? @map("baja")
 
+  // Hallazgo B-5: son los tres accesos que hace el sistema todo el
+  // tiempo — el listado del panel (activas, filtradas por estado), la
+  // ficha del cliente y la búsqueda de reservas por vencer del Flujo 4.
+  // Al volumen actual da igual; están porque la tesis argumenta
+  // escalabilidad y un índice ausente es lo primero que se mira.
+  @@index([baja, estado])
+  @@index([clienteId])
+  @@index([fechaViaje])
   @@map("reservas")
 }
 
