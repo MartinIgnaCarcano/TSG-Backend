@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
+import { validateBody } from '../middleware/validate'
+import { crearTramoSchema, actualizarTramoSchema } from '../schemas/tramo.schema'
 
 const router = Router()
 
@@ -33,7 +35,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // POST /api/tramos
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', validateBody(crearTramoSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { origenId, destinoId, orden, duracionMinutos, horaSalida, horaLlegada, aerolinea, completo, viajeId } = req.body
     const tramo = await prisma.tramo.create({
@@ -56,7 +58,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // PUT /api/tramos/:id
-router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:id', validateBody(actualizarTramoSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { origenId, destinoId, orden, duracionMinutos, horaSalida, horaLlegada, aerolinea, completo } = req.body
     const tramo = await prisma.tramo.update({

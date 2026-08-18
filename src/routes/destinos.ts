@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
+import { validateBody } from '../middleware/validate'
+import { crearDestinoSchema, actualizarDestinoSchema } from '../schemas/destino.schema'
 
 const router = Router()
 
@@ -67,7 +69,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // POST /api/destinos
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', validateBody(crearDestinoSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { nombre, codigoIATA, pais, timezone } = req.body
     const destino = await prisma.destino.create({
@@ -85,7 +87,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // PUT /api/destinos/:id
-router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:id', validateBody(actualizarDestinoSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { nombre, codigoIATA, pais, timezone } = req.body
     const destino = await prisma.destino.update({

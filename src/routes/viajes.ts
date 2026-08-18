@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
+import { validateBody } from '../middleware/validate'
+import { crearViajeSchema, actualizarViajeSchema } from '../schemas/viaje.schema'
 
 const router = Router()
 
@@ -42,7 +44,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // POST /api/viajes
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', validateBody(crearViajeSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { origenId, destinoId, tieneEscalas, descripcion, tramos } = req.body
     const viaje = await prisma.viaje.create({
@@ -79,7 +81,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // PUT /api/viajes/:id
-router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:id', validateBody(actualizarViajeSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { origenId, destinoId, tieneEscalas, descripcion } = req.body
     const viaje = await prisma.viaje.update({

@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken'
 import { config } from '../config'
 import { loginRateLimit } from '../middleware/loginRateLimit'
 import { requireAdminBearer } from '../middleware/auth'
+import { validateBody } from '../middleware/validate'
+import { crearAdminSchema, actualizarAdminSchema, loginSchema } from '../schemas/adminUser.schema'
 
 const router = Router()
 const SALT_ROUNDS = 10
@@ -41,10 +43,9 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // Fase S6: creación de admins fuera del alcance de la x-api-key de n8n —
 // exige Bearer de un admin ya logueado (ver requireAdminBearer). El
 // primer admin lo crea prisma/seed.ts.
-router.post('/', requireAdminBearer, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', requireAdminBearer, validateBody(crearAdminSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, nombre, password } = req.body
-    if (!password) return res.status(400).json({ error: 'La contraseña es requerida' })
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
     const admin = await prisma.adminUser.create({
@@ -58,7 +59,7 @@ router.post('/', requireAdminBearer, async (req: Request, res: Response, next: N
 })
 
 // POST /api/admin-users/login
-router.post('/login', loginRateLimit, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/login', loginRateLimit, validateBody(loginSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body
     const admin = await prisma.adminUser.findUnique({ where: { email } })
@@ -81,7 +82,7 @@ router.post('/login', loginRateLimit, async (req: Request, res: Response, next: 
 })
 
 // PUT /api/admin-users/:id — Fase S6: mismo criterio que el POST.
-router.put('/:id', requireAdminBearer, async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:id', requireAdminBearer, validateBody(actualizarAdminSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { nombre, email, password } = req.body
     const data: any = { nombre, email }

@@ -3,6 +3,8 @@
 // =====================================================
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
+import { validateBody } from '../middleware/validate'
+import { crearRecordatorioSchema, ejecutarRecordatorioSchema } from '../schemas/recordatorio.schema'
 
 const router = Router()
 
@@ -78,7 +80,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // recordatorio ANTES de enviar (llamar a este endpoint primero y saltear
 // el envío si responde `yaEjecutado: true`), que es un cambio en el
 // workflow, no acá.
-router.patch('/:id/ejecutar', async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id/ejecutar', validateBody(ejecutarRecordatorioSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = req.params.id as string
     const { resultado } = req.body
@@ -112,11 +114,11 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 })
 
 // POST /api/recordatorios — crear uno manualmente (poco común)
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', validateBody(crearRecordatorioSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { reservaId, tipo, fechaProgramada } = req.body
     const r = await prisma.recordatorio.create({
-      data: { reservaId, tipo, fechaProgramada: new Date(fechaProgramada) },
+      data: { reservaId, tipo, fechaProgramada },
     })
     res.status(201).json(r)
   } catch (e) {

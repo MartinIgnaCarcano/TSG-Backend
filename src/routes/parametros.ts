@@ -4,6 +4,8 @@
 // =====================================================
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
+import { validateBody } from '../middleware/validate'
+import { actualizarParametroSchema } from '../schemas/parametro.schema'
 
 const router = Router()
 
@@ -33,10 +35,9 @@ router.get('/:clave', async (req: Request, res: Response, next: NextFunction) =>
 })
 
 // PUT /api/parametros/:clave — upsert (crear o actualizar)
-router.put('/:clave', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:clave', validateBody(actualizarParametroSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { valor, descripcion } = req.body
-    if (valor == null) return res.status(400).json({ error: 'Falta "valor"' })
 
     const p = await prisma.parametroSistema.upsert({
       where: { clave: req.params.clave as string },

@@ -4,6 +4,8 @@
 // =====================================================
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
+import { validateBody } from '../middleware/validate'
+import { crearHotelSchema, actualizarHotelSchema } from '../schemas/hotel.schema'
 
 const router = Router()
 
@@ -58,7 +60,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // POST /api/hoteles
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', validateBody(crearHotelSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const {
       nombre, destinoId, destinoIATA,
@@ -66,9 +68,6 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       descripcion, direccion, urlImagen, urlReserva,
       fuente, rating,
     } = req.body
-
-    if (!nombre) return res.status(400).json({ error: 'Falta nombre' })
-    if (precioNoche == null) return res.status(400).json({ error: 'Falta precioNoche' })
 
     // Resolver destinoId desde IATA si viene
     let dId = destinoId
@@ -102,7 +101,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // PUT /api/hoteles/:id
-router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/:id', validateBody(actualizarHotelSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const {
       nombre, destinoId, destinoIATA,
