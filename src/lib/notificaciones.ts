@@ -21,17 +21,28 @@ export interface DocumentoEmitidoPayload {
   documentoUrl: string
 }
 
-/**
- * Avisa a n8n que se acaba de emitir un documento. No lanza si falla — solo
- * loguea (resultado + latencia, Fase M4), para no romper la respuesta de la
- * ruta que llama a esto (el documento ya se generó y guardó igual).
- */
-export function notificarDocumentoEmitido(payload: DocumentoEmitidoPayload): void {
+// Hallazgo B-2 de la auditoría de ingeniería: un único intento. Si n8n
+// estaba reiniciándose o el contenedor todavía no había levantado, el
+// voucher se emitía igual pero el cliente no lo recibía nunca, y lo único
+// que quedaba era una línea de warning que nadie mira. Tres intentos con
+// espera creciente cubren la caída transitoria, que es el caso real.
+//
+// Contrapartida asumida: si n8n procesó el aviso pero la respuesta se
+// perdió, el reintento manda el mensaje dos veces. Entre un cliente que
+// recibe el voucher duplicado y uno que no lo recibe, preferimos el
+// primero. Si en algún momento molesta, se cierra del lado de n8n
+// descartando por `reservaId` + `tipo` ya notificados.
+const REINTENTOS = 3
+const ESPERA_BASE_MS = 2000
+
+const esperar = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function intentarNotificar(payload: DocumentoEmitidoPayload): Promise<void> {
   const start = process.hrtime.bigint()
 
-  axios
-    .post(config.n8nWebhookDocumentoUrl, payload, { timeout: 10000 })
-    .then(() => {
+  for (let intento = 1; intento <= REINTENTOS; intento++) {
+    try {
+      await axios.post(config.n8nWebhookDocumentoUrl, payload, { timeout: 10000 })
       const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000
       logger.info(
         {
@@ -40,24 +51,61 @@ export function notificarDocumentoEmitido(payload: DocumentoEmitidoPayload): voi
           reservaId: payload.reservaId,
           url: config.n8nWebhookDocumentoUrl,
           resultado: 'ok',
+          intento,
           latencyMs,
         },
         `Webhook de ${payload.tipo} emitido: n8n avisado`,
       )
-    })
-    .catch((e: any) => {
+      return
+    } catch (e: any) {
+      const esUltimo = intento === REINTENTOS
+
+      if (!esUltimo) {
+        const espera = ESPERA_BASE_MS * 2 ** (intento - 1)
+        logger.warn(
+          {
+            webhook: 'notificarDocumentoEmitido',
+            tipo: payload.tipo,
+            reservaId: payload.reservaId,
+            intento,
+            proximoIntentoEnMs: espera,
+            err: e,
+          },
+          `Falló el aviso a n8n (intento ${intento} de ${REINTENTOS}); se reintenta`,
+        )
+        await esperar(espera)
+        continue
+      }
+
       const latencyMs = Number(process.hrtime.bigint() - start) / 1_000_000
-      logger.warn(
+      logger.error(
         {
           webhook: 'notificarDocumentoEmitido',
           tipo: payload.tipo,
           reservaId: payload.reservaId,
           url: config.n8nWebhookDocumentoUrl,
           resultado: 'error',
+          intentos: REINTENTOS,
           latencyMs,
           err: e,
         },
-        `No se pudo avisar a n8n sobre el ${payload.tipo} de la reserva ${payload.reservaId}. El documento se generó igual; el envío automático de WhatsApp/email no se disparó.`,
+        `No se pudo avisar a n8n sobre el ${payload.tipo} de la reserva ${payload.reservaId} tras ${REINTENTOS} intentos. El documento se generó y se puede descargar desde el panel; lo que no salió es el envío automático de WhatsApp/email.`,
       )
-    })
+    }
+  }
+}
+
+/**
+ * Avisa a n8n que se acaba de emitir un documento. No lanza y no bloquea:
+ * la ruta que llama a esto ya generó y guardó el documento, así que su
+ * respuesta HTTP no puede depender de que el aviso salga. Los reintentos
+ * ocurren en segundo plano.
+ */
+export function notificarDocumentoEmitido(payload: DocumentoEmitidoPayload): void {
+  void intentarNotificar(payload).catch((err) => {
+    // Red de contención: intentarNotificar ya maneja sus errores, pero si
+    // fallara el propio logger no queremos una promesa rechazada suelta
+    // tumbando el proceso.
+    logger.error({ err }, 'Error inesperado notificando a n8n')
+  })
 }
