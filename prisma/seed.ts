@@ -1,5 +1,6 @@
 import { PrismaClient, MedioPago, TipoRecordatorio, TipoDocumentoIdentidad } from '@prisma/client'
 import bcrypt from 'bcrypt'
+import { randomBytes } from 'crypto'
 
 const prisma = new PrismaClient()
 
@@ -40,13 +41,40 @@ async function main() {
   console.log(`  ✓ ${DESTINOS.length} destinos cargados`)
 
   console.log('🌱 Seed: admin…')
-  const passwordHash = await bcrypt.hash('admin123', 10)
+  // Hallazgo C-2 de la auditoría de ingeniería: la contraseña del panel
+  // administrativo estaba fija en este archivo ('admin123'), que además
+  // se publica junto con el repositorio. Ahora sale del entorno:
+  //   - SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD si están definidas;
+  //   - en producción son obligatorias (el seed falla si no vienen);
+  //   - en desarrollo, si falta la contraseña se genera una al azar y se
+  //     imprime una única vez, para no volver a fijar un valor conocido.
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@stg.com'
+  let adminPassword = process.env.SEED_ADMIN_PASSWORD
+  let passwordGenerada = false
+
+  if (!adminPassword) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        '❌ Falta SEED_ADMIN_PASSWORD. En producción el seed no crea un admin con una contraseña por defecto.',
+      )
+    }
+    adminPassword = randomBytes(12).toString('base64url')
+    passwordGenerada = true
+  }
+
+  const passwordHash = await bcrypt.hash(adminPassword, 10)
   await prisma.adminUser.upsert({
-    where: { email: 'admin@stg.com' },
+    where: { email: adminEmail },
     update: { nombre: 'Admin STG', passwordHash, baja: null },
-    create: { email: 'admin@stg.com', nombre: 'Admin STG', passwordHash },
+    create: { email: adminEmail, nombre: 'Admin STG', passwordHash },
   })
-  console.log('  ✓ admin@stg.com / admin123')
+
+  if (passwordGenerada) {
+    console.log(`  ✓ ${adminEmail}`)
+    console.log(`  🔑 Contraseña generada (anotala, no se vuelve a mostrar): ${adminPassword}`)
+  } else {
+    console.log(`  ✓ ${adminEmail} (contraseña tomada de SEED_ADMIN_PASSWORD)`)
+  }
 
   // ====================== CLIENTES + RESERVAS DE PRUEBA ======================
   // Una reserva por estado de la máquina de estados (EN_PROCESO, SEÑADA,
