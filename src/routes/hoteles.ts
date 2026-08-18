@@ -154,30 +154,84 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 })
 
 // POST /api/hoteles/bulk — usado por el Flujo 6, recibe array y hace upsert por (nombre + destinoId)
+//
+// Hallazgo M-3 de la auditoría de ingeniería: recorría un array sin límite
+// de tamaño haciendo dos o tres consultas por elemento (un findUnique del
+// destino, un findFirst del hotel y la escritura), y sin transacción. Con
+// un array grande eran cientos de round-trips secuenciales contra la base
+// y un resultado que podía quedar a medio aplicar.
+//
+// Ahora: se acota el tamaño, los destinos y los hoteles existentes se
+// resuelven en dos consultas para todo el lote, y las escrituras van en
+// una transacción. El contrato de respuesta se mantiene (`creados`,
+// `actualizados`, `total`) y se agregan dos contadores de diagnóstico.
+const MAX_BULK = 200
+
 router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const items: any[] = Array.isArray(req.body) ? req.body : (req.body.items || [])
     if (!items.length) return res.status(400).json({ error: 'Array vacío' })
-
-    let creados = 0, actualizados = 0
-    for (const item of items) {
-      // Resolver destino IATA si viene
-      let dId = item.destinoId
-      if (!dId && item.destinoIATA) {
-        const d = await prisma.destino.findUnique({
-          where: { codigoIATA: String(item.destinoIATA).toUpperCase() },
-        })
-        if (d) dId = d.id
-      }
-      if (!dId || !item.nombre) continue
-
-      const existente = await prisma.hotel.findFirst({
-        where: { nombre: item.nombre, destinoId: dId, baja: null },
+    if (items.length > MAX_BULK) {
+      return res.status(413).json({
+        error: `Máximo ${MAX_BULK} hoteles por llamada (llegaron ${items.length}). Partilo en varias.`,
       })
+    }
 
+    // 1. Todos los destinos que aparecen en el lote, en una sola consulta.
+    const iatas = [
+      ...new Set(
+        items
+          .filter((i) => !i.destinoId && i.destinoIATA)
+          .map((i) => String(i.destinoIATA).toUpperCase()),
+      ),
+    ]
+    const destinos = iatas.length
+      ? await prisma.destino.findMany({ where: { codigoIATA: { in: iatas } } })
+      : []
+    const destinoPorIata = new Map(destinos.map((d) => [d.codigoIATA, d.id]))
+
+    // 2. Normalizar: resolver el destino y descartar lo que no sirve.
+    //    Los repetidos dentro del mismo lote se descartan también: si no,
+    //    dos entradas iguales creaban dos hoteles idénticos.
+    const clave = (nombre: string, destinoId: string) => `${destinoId}::${nombre}`
+    const vistos = new Set<string>()
+    let descartados = 0
+    let duplicadosEnElLote = 0
+
+    const normalizados = items.flatMap((item) => {
+      const destinoId: string | undefined =
+        item.destinoId ||
+        (item.destinoIATA ? destinoPorIata.get(String(item.destinoIATA).toUpperCase()) : undefined)
+
+      if (!destinoId || !item.nombre) {
+        descartados++
+        return []
+      }
+      const k = clave(item.nombre, destinoId)
+      if (vistos.has(k)) {
+        duplicadosEnElLote++
+        return []
+      }
+      vistos.add(k)
+      return [{ ...item, destinoId }]
+    })
+
+    // 3. Los hoteles ya existentes de esos destinos, en una sola consulta.
+    const destinoIds = [...new Set(normalizados.map((i) => i.destinoId))]
+    const existentes = destinoIds.length
+      ? await prisma.hotel.findMany({ where: { baja: null, destinoId: { in: destinoIds } } })
+      : []
+    const existentePorClave = new Map(existentes.map((h) => [clave(h.nombre, h.destinoId), h]))
+
+    // 4. Repartir entre altas y modificaciones.
+    const aCrear: any[] = []
+    const aActualizar: { id: string; data: any }[] = []
+
+    for (const item of normalizados) {
+      const existente = existentePorClave.get(clave(item.nombre, item.destinoId))
       if (existente) {
-        await prisma.hotel.update({
-          where: { id: existente.id },
+        aActualizar.push({
+          id: existente.id,
           data: {
             estrellas: item.estrellas ?? existente.estrellas,
             precioNoche: item.precioNoche ?? existente.precioNoche,
@@ -188,27 +242,42 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
             fuente: item.fuente || existente.fuente,
           },
         })
-        actualizados++
       } else {
-        await prisma.hotel.create({
-          data: {
-            nombre: item.nombre,
-            destinoId: dId,
-            estrellas: item.estrellas ?? 3,
-            precioNoche: item.precioNoche ?? 0,
-            moneda: item.moneda || 'USD',
-            descripcion: item.descripcion,
-            direccion: item.direccion,
-            urlImagen: item.urlImagen,
-            urlReserva: item.urlReserva,
-            rating: item.rating,
-            fuente: item.fuente || 'RAPIDAPI',
-          },
+        aCrear.push({
+          nombre: item.nombre,
+          destinoId: item.destinoId,
+          estrellas: item.estrellas ?? 3,
+          precioNoche: item.precioNoche ?? 0,
+          moneda: item.moneda || 'USD',
+          descripcion: item.descripcion,
+          direccion: item.direccion,
+          urlImagen: item.urlImagen,
+          urlReserva: item.urlReserva,
+          rating: item.rating,
+          fuente: item.fuente || 'RAPIDAPI',
         })
-        creados++
       }
     }
-    res.json({ ok: true, creados, actualizados, total: items.length })
+
+    // 5. Escribir todo junto: o entra el lote entero o no entra ninguno.
+    await prisma.$transaction(
+      async (tx) => {
+        if (aCrear.length) await tx.hotel.createMany({ data: aCrear })
+        for (const u of aActualizar) {
+          await tx.hotel.update({ where: { id: u.id }, data: u.data })
+        }
+      },
+      { timeout: 20_000 },
+    )
+
+    res.json({
+      ok: true,
+      creados: aCrear.length,
+      actualizados: aActualizar.length,
+      descartados,
+      duplicadosEnElLote,
+      total: items.length,
+    })
   } catch (e) {
     next(e)
   }
