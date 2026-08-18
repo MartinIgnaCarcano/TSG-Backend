@@ -129,25 +129,52 @@ router.post('/', validateBody(crearReservaSchema), async (req: Request, res: Res
 
     const { fViaje, fRegreso } = await inferirFechasViaje(cotizacionId, fechaViaje, fechaRegreso)
 
-    const reserva = await prisma.reserva.create({
-      data: {
-        clienteId,
-        cotizacionId,
-        tipoReserva,
-        montoFinal,
-        saldoPagado: saldoPagado ?? 0,
-        numeroReserva,
-        observaciones,
-        fechaViaje: fViaje,
-        fechaRegreso: fRegreso,
-      },
-      include: { cliente: true, cotizacion: true },
-    })
+    // Hallazgo A-5 de la auditoría de ingeniería: la reserva y sus
+    // recordatorios se crean ahora en una sola transacción. Antes eran
+    // dos escrituras sueltas y, si la segunda fallaba, quedaba una
+    // reserva sin ningún recordatorio programado: no se avisaba el saldo
+    // ni el check-in, y nadie se enteraba hasta que el cliente reclamaba.
+    //
+    // La seña inicial tampoco se escribe ya como un número suelto en
+    // `saldoPagado`: se registra como un `Pago` real (hallazgo A-4), para
+    // que el invariante `saldoPagado = SUM(pagos activos)` valga también
+    // para las reservas que nacen con seña, y para que esa plata quede
+    // auditada como cualquier otro cobro.
+    const senaInicial = Number(saldoPagado ?? 0)
 
-    const recordatorios = construirRecordatorios(reserva.id, montoFinal, saldoPagado ?? 0, fViaje, fRegreso)
-    if (recordatorios.length > 0) {
-      await prisma.recordatorio.createMany({ data: recordatorios })
-    }
+    const reserva = await prisma.$transaction(async (tx) => {
+      const creada = await tx.reserva.create({
+        data: {
+          clienteId,
+          cotizacionId,
+          tipoReserva,
+          montoFinal,
+          numeroReserva,
+          observaciones,
+          fechaViaje: fViaje,
+          fechaRegreso: fRegreso,
+        },
+        include: { cliente: true, cotizacion: true },
+      })
+
+      const recordatorios = construirRecordatorios(creada.id, Number(montoFinal), senaInicial, fViaje, fRegreso)
+      if (recordatorios.length > 0) {
+        await tx.recordatorio.createMany({ data: recordatorios })
+      }
+
+      if (senaInicial > 0) {
+        await registrarPago(tx, creada.id, {
+          monto: senaInicial,
+          observaciones: 'Seña registrada al crear la reserva',
+        })
+        return tx.reserva.findUniqueOrThrow({
+          where: { id: creada.id },
+          include: { cliente: true, cotizacion: true },
+        })
+      }
+
+      return creada
+    })
 
     res.status(201).json(conSaldoPendiente(reserva))
   } catch (e) {
