@@ -23,6 +23,7 @@ import {
   reservarVersionDocumento,
 } from '../services/reservas.service'
 import { parsePaginacion, paginarArray } from '../lib/pagination'
+import { generarNumero } from '../lib/identificadores'
 
 const router = Router()
 
@@ -126,7 +127,7 @@ router.post('/', validateBody(crearReservaSchema), async (req: Request, res: Res
       fechaViaje,    // opcional: si no viene, se infiere del primer/último tramo
       fechaRegreso,
     } = req.body
-    const numeroReserva = `RES-${Date.now()}`
+    const numeroReserva = generarNumero('RES')
 
     const { fViaje, fRegreso } = await inferirFechasViaje(cotizacionId, fechaViaje, fechaRegreso)
 
@@ -336,7 +337,7 @@ router.post('/:id/voucher', async (req: Request, res: Response, next: NextFuncti
     // calcularse con un count() suelto que dos emisiones simultáneas
     // resolvían al mismo número. Ver reservarVersionDocumento().
     const { id: documentoId, version } = await reservarVersionDocumento(prisma, id, TipoDocumento.VOUCHER)
-    const numeroVoucher = `VOU-${Date.now()}`
+    const numeroVoucher = generarNumero('VOU')
 
     const snapshot: VoucherSnapshot = {
       numeroReserva: reserva.numeroReserva,
@@ -448,7 +449,7 @@ router.post('/:id/contrato', async (req: Request, res: Response, next: NextFunct
     const viaje = reserva.cotizacion.viaje
     // Hallazgo A-2: mismo criterio que en el voucher.
     const { id: documentoId, version } = await reservarVersionDocumento(prisma, id, TipoDocumento.CONTRATO)
-    const numeroContrato = `CON-${Date.now()}`
+    const numeroContrato = generarNumero('CON')
 
     const snapshot: ContratoSnapshot = {
       numeroReserva: reserva.numeroReserva,

@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma'
 import { validateBody } from '../middleware/validate'
 import { crearCotizacionSchema, actualizarCotizacionSchema } from '../schemas/cotizacion.schema'
 import { parsePaginacion } from '../lib/pagination'
+import { generarNumero } from '../lib/identificadores'
 
 const router = Router()
 
@@ -81,7 +82,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', validateBody(crearCotizacionSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { viajeId, clienteId, fechaVencimiento, moneda, precioIda, precioVuelta, precioIdaYVuelta, impuestos, observaciones, ofertaExternaID, clase, cantidadValijas, extras, precioExtras } = req.body
-    const numeroCotizacion = `COT-${Date.now()}`
+    const numeroCotizacion = generarNumero('COT')
     const cotizacion = await prisma.cotizacion.create({
       data: {
         viajeId,

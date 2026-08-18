@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma'
 import { validateBody } from '../middleware/validate'
 import { crearClienteSchema, actualizarClienteSchema } from '../schemas/cliente.schema'
 import { parsePaginacion } from '../lib/pagination'
+import { generarNumero } from '../lib/identificadores'
 
 const router = Router()
 
@@ -81,7 +82,7 @@ router.post('/', validateBody(crearClienteSchema), async (req: Request, res: Res
     // si no vino (u ocurre choque de unique), se autogenera. El choque de
     // unique en `numeroCliente` provisto a mano lo resuelve el handler
     // global de errores (P2002 -> 409).
-    const numeroCliente = (req.body.numeroCliente as string | undefined)?.trim() || `CLI-${Date.now()}`
+    const numeroCliente = (req.body.numeroCliente as string | undefined)?.trim() || generarNumero('CLI')
     const cliente = await prisma.cliente.create({
       data: { nombre, apellido, telefono, email, numeroCliente },
     })
