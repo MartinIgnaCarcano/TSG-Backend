@@ -28,6 +28,7 @@ import {
   construirRecordatorios,
   registrarPago,
   anularPago,
+  reservarVersionDocumento,
 } from './reservas.service'
 
 // =====================================================
@@ -296,6 +297,9 @@ describe('registrarPago (mock Prisma)', () => {
     // Reserva EN_PROCESO, montoFinal 1000, saldoPagado previo 800.
     // Pago de 200 cubre el total -> saldoPagado 1000, pendiente 0.
     const tx = {
+      // A-1: anularPago toma el lock de la fila de la reserva antes de
+      // calcular el SUM; el mock tiene que exponerlo.
+      $queryRaw: vi.fn(),
       pago: {
         create: vi.fn().mockResolvedValue({ id: 'p1', reservaId: 'r1', monto: 200 }),
       },
@@ -349,6 +353,9 @@ describe('registrarPago (mock Prisma)', () => {
     // (El pasaje EN_PROCESO->SEÑADA es un paso manual vía POST /confirmar,
     // no algo que dispare registrarPago según el monto pagado.)
     const tx = {
+      // A-1: anularPago toma el lock de la fila de la reserva antes de
+      // calcular el SUM; el mock tiene que exponerlo.
+      $queryRaw: vi.fn(),
       pago: {
         create: vi.fn().mockResolvedValue({ id: 'p2', reservaId: 'r1', monto: 200 }),
       },
@@ -401,6 +408,9 @@ describe('anularPago (mock Prisma)', () => {
     // Se anula el de 400 -> queda un pago activo de 600 -> saldo pendiente 400 (>0, pero >0 no cubre):
     // debe volver a SEÑADA, no a EN_PROCESO (todavía queda saldo pagado > 0).
     const tx = {
+      // A-1: anularPago toma el lock de la fila de la reserva antes de
+      // calcular el SUM; el mock tiene que exponerlo.
+      $queryRaw: vi.fn(),
       pago: {
         findUnique: vi.fn().mockResolvedValue({ id: 'p2', reservaId: 'r1', monto: 400, baja: null }),
         update: vi.fn().mockResolvedValue({ id: 'p2', reservaId: 'r1', monto: 400, baja: new Date() }),
@@ -442,6 +452,9 @@ describe('anularPago (mock Prisma)', () => {
 
   it('anular el único pago de una reserva PAGADA la devuelve a EN_PROCESO (saldo en 0)', async () => {
     const tx = {
+      // A-1: anularPago toma el lock de la fila de la reserva antes de
+      // calcular el SUM; el mock tiene que exponerlo.
+      $queryRaw: vi.fn(),
       pago: {
         findUnique: vi.fn().mockResolvedValue({ id: 'p1', reservaId: 'r1', monto: 1000, baja: null }),
         update: vi.fn().mockResolvedValue({ id: 'p1', reservaId: 'r1', monto: 1000, baja: new Date() }),
@@ -472,6 +485,9 @@ describe('anularPago (mock Prisma)', () => {
 
   it('anular un pago de una reserva que ya no está PAGADA (ej. DOCUMENTADA) no revierte el estado, solo recalcula el saldo', async () => {
     const tx = {
+      // A-1: anularPago toma el lock de la fila de la reserva antes de
+      // calcular el SUM; el mock tiene que exponerlo.
+      $queryRaw: vi.fn(),
       pago: {
         findUnique: vi.fn().mockResolvedValue({ id: 'p2', reservaId: 'r1', monto: 400, baja: null }),
         update: vi.fn().mockResolvedValue({ id: 'p2', reservaId: 'r1', monto: 400, baja: new Date() }),
@@ -502,6 +518,9 @@ describe('anularPago (mock Prisma)', () => {
 
   it('anular un pago ya anulado es no-op: no recalcula saldo ni revierte estado', async () => {
     const tx = {
+      // A-1: anularPago toma el lock de la fila de la reserva antes de
+      // calcular el SUM; el mock tiene que exponerlo.
+      $queryRaw: vi.fn(),
       pago: {
         findUnique: vi.fn().mockResolvedValue({ id: 'p2', reservaId: 'r1', monto: 400, baja: new Date('2026-01-01') }),
         update: vi.fn(),
@@ -521,5 +540,131 @@ describe('anularPago (mock Prisma)', () => {
     expect(tx.pago.update).not.toHaveBeenCalled()
     expect(tx.reserva.update).not.toHaveBeenCalled()
     expect(tx.recordatorio.updateMany).not.toHaveBeenCalled()
+  })
+})
+
+// =====================================================
+// A-1 — orden de las operaciones en anularPago
+//
+// El defecto que se corrigió no es visible en el resultado de una
+// ejecución aislada: `anularPago` devolvía el saldo correcto igual. Lo
+// que fallaba era el ORDEN respecto de una transacción concurrente, así
+// que lo que se verifica acá es justamente el orden: que el lock de la
+// fila de la reserva se tome ANTES de leer el SUM de los pagos.
+//
+// Si alguien mueve el `$queryRaw ... FOR UPDATE` después del `aggregate`
+// (o lo borra por parecer decorativo), este test falla y explica por qué
+// estaba ahí, que es lo que un comentario solo no garantiza.
+// =====================================================
+describe('anularPago — lock de fila (hallazgo A-1)', () => {
+  function txConLock() {
+    return {
+      $queryRaw: vi.fn(),
+      pago: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'p2', reservaId: 'r1', monto: 400, baja: null }),
+        update: vi.fn().mockResolvedValue({ id: 'p2', reservaId: 'r1', monto: 400, baja: new Date() }),
+        aggregate: vi.fn().mockResolvedValue({ _sum: { monto: 600 } }),
+      },
+      reserva: {
+        findUniqueOrThrow: vi
+          .fn()
+          .mockResolvedValueOnce({ id: 'r1', estado: EstadoReserva.SEÑADA, montoFinal: 1000, saldoPagado: 1000 })
+          .mockResolvedValue({ id: 'r1', estado: EstadoReserva.SEÑADA, montoFinal: 1000, saldoPagado: 600 }),
+        update: vi.fn().mockResolvedValue({ id: 'r1' }),
+        findUnique: vi.fn(),
+        updateMany: vi.fn(),
+      },
+      recordatorio: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    } as any
+  }
+
+  it('toma el lock de la reserva antes de calcular el SUM de los pagos', async () => {
+    const tx = txConLock()
+
+    await anularPago(tx, 'p2')
+
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1)
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.pago.aggregate.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('el lock es sobre la fila de la reserva del pago, no sobre otra', async () => {
+    const tx = txConLock()
+
+    await anularPago(tx, 'p2')
+
+    // $queryRaw recibe (strings, ...valores) por ser un tagged template:
+    // el id de la reserva viaja como parámetro, no interpolado en el SQL.
+    const [fragmentos, ...valores] = tx.$queryRaw.mock.calls[0]
+    expect(fragmentos.join('?')).toContain('FOR UPDATE')
+    expect(valores).toEqual(['r1'])
+  })
+
+  it('no toma el lock si el pago no existe (no hay nada que proteger)', async () => {
+    const tx = {
+      $queryRaw: vi.fn(),
+      pago: { findUnique: vi.fn().mockResolvedValue(null) },
+    } as any
+
+    await anularPago(tx, 'no-existe')
+
+    expect(tx.$queryRaw).not.toHaveBeenCalled()
+  })
+})
+
+// =====================================================
+// A-2 — reserva atómica del número de versión de un documento
+// =====================================================
+describe('reservarVersionDocumento (hallazgo A-2)', () => {
+  function dbCon(versionesPrevias: number) {
+    const tx = {
+      $queryRaw: vi.fn(),
+      documentoGenerado: {
+        count: vi.fn().mockResolvedValue(versionesPrevias),
+        create: vi.fn().mockImplementation(({ data }: any) => Promise.resolve({ id: 'doc1', ...data })),
+      },
+    } as any
+    const db = { $transaction: vi.fn((fn: any) => fn(tx)) } as any
+    return { db, tx }
+  }
+
+  it('la primera emisión es la versión 1', async () => {
+    const { db, tx } = dbCon(0)
+
+    const r = await reservarVersionDocumento(db, 'r1', 'VOUCHER' as any)
+
+    expect(r.version).toBe(1)
+    expect(tx.documentoGenerado.create).toHaveBeenCalledWith({
+      data: { reservaId: 'r1', tipo: 'VOUCHER', version: 1, datosSnapshot: {} },
+    })
+  })
+
+  it('una reemisión toma el número siguiente', async () => {
+    const { db } = dbCon(2)
+
+    const r = await reservarVersionDocumento(db, 'r1', 'VOUCHER' as any)
+
+    expect(r.version).toBe(3)
+  })
+
+  it('todo ocurre dentro de una transacción y con el lock tomado antes de contar', async () => {
+    const { db, tx } = dbCon(0)
+
+    await reservarVersionDocumento(db, 'r1', 'CONTRATO' as any)
+
+    expect(db.$transaction).toHaveBeenCalledTimes(1)
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.documentoGenerado.count.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('la fila se crea sin url: el archivo se completa después, fuera de la transacción', async () => {
+    const { db, tx } = dbCon(0)
+
+    await reservarVersionDocumento(db, 'r1', 'VOUCHER' as any)
+
+    const { data } = tx.documentoGenerado.create.mock.calls[0][0]
+    expect(data.url).toBeUndefined()
   })
 })
