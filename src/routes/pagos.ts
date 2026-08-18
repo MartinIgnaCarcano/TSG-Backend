@@ -58,7 +58,13 @@ router.post('/', validateBody(crearPagoSchema), async (req: Request, res: Respon
 // si corresponde. Ver anularPago() en reservas.service.ts.
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const resultado = await prisma.$transaction((tx) => anularPago(tx, req.params.id as string))
+    // El timeout sube de los 5 s por defecto de Prisma porque esta
+    // transacción ahora espera el lock de la fila de la reserva
+    // (hallazgo A-1): si hay un pago concurrente en curso, se bloquea
+    // hasta que ese termine, y 5 s podían quedar cortos bajo carga.
+    const resultado = await prisma.$transaction((tx) => anularPago(tx, req.params.id as string), {
+      timeout: 10_000,
+    })
     if (!resultado) return res.status(404).json({ error: 'Pago no encontrado' })
     res.json(resultado)
   } catch (e) {

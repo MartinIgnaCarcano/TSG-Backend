@@ -322,6 +322,29 @@ export async function registrarPago(tx: Prisma.TransactionClient, reservaId: str
  *
  * Devuelve `null` si el pago no existe. Si el pago ya estaba anulado, es
  * no-op (no vuelve a recalcular ni a revertir estado por segunda vez).
+ *
+ * Concurrencia (hallazgo A-1 de la auditoría de ingeniería): esta función
+ * escribe el saldo en valor ABSOLUTO (el `SUM` de los pagos activos),
+ * mientras que `registrarPago` lo escribe con `increment`. Mezclar las dos
+ * formas bajo el aislamiento por defecto de PostgreSQL (Read Committed)
+ * permitía perder un pago:
+ *
+ *   T1 (anular)                 T2 (registrar un pago de $500)
+ *   ─────────────────────────────────────────────────────────────
+ *   SELECT SUM(...) -> 1000
+ *                               INSERT pago 500
+ *                               UPDATE reserva increment 500 -> 1500
+ *                               COMMIT
+ *   UPDATE reserva SET 1000     <- pisa el pago de T2
+ *   COMMIT
+ *
+ * El pago de T2 quedaba en la tabla `pagos` pero desaparecía de
+ * `saldoPagado`, que es lo que mira el front, lo que decide el avance a
+ * PAGADA y lo que imprime el contrato. Se resuelve tomando el lock de la
+ * fila de la reserva ANTES de calcular el `SUM`: como `registrarPago`
+ * también toma ese lock (su `UPDATE ... increment` lo hace implícito),
+ * las dos transacciones quedan serializadas en cualquier orden, y la que
+ * llega segunda ve el resultado de la primera en vez de pisarlo.
  */
 export async function anularPago(tx: Prisma.TransactionClient, pagoId: string) {
   const pagoActual = await tx.pago.findUnique({ where: { id: pagoId } })
@@ -331,6 +354,11 @@ export async function anularPago(tx: Prisma.TransactionClient, pagoId: string) {
     const reservaActual = await tx.reserva.findUniqueOrThrow({ where: { id: pagoActual.reservaId } })
     return { pago: pagoActual, reserva: conSaldoPendiente(reservaActual) }
   }
+
+  // Lock explícito de la fila de la reserva (ver comentario de arriba).
+  // Tiene que ir antes del `aggregate`, no después: lo que se protege es
+  // la ventana entre leer el SUM y escribirlo.
+  await tx.$queryRaw`SELECT id FROM reservas WHERE id = ${pagoActual.reservaId} FOR UPDATE`
 
   const pago = await tx.pago.update({ where: { id: pagoId }, data: { baja: new Date() } })
   const reservaAntes = await tx.reserva.findUniqueOrThrow({ where: { id: pago.reservaId } })
