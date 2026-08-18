@@ -24,7 +24,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const reservaId = req.query.reservaId as string | undefined
     const tipo = req.query.tipo as string | undefined
     const documentos = await prisma.documentoGenerado.findMany({
-      where: { ...(reservaId && { reservaId }), ...(tipo && { tipo: tipo as any }) },
+      // `url: not null` excluye las filas que sólo tienen el número de
+      // versión reservado y todavía no tienen archivo (ver
+      // reservarVersionDocumento, hallazgo A-2): un documento a medio
+      // emitir no es un documento que se pueda listar ni descargar.
+      where: { url: { not: null }, ...(reservaId && { reservaId }), ...(tipo && { tipo: tipo as any }) },
       orderBy: [{ reservaId: 'asc' }, { tipo: 'asc' }, { version: 'desc' }],
     })
     res.json(documentos.map((d) => ({ ...d, url: urlPublicaDocumento(d) })))

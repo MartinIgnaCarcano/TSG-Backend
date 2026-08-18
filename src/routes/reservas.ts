@@ -105,7 +105,9 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
         recordatorios: { orderBy: { fechaProgramada: 'asc' } },
         pagos: { where: { baja: null }, orderBy: { fechaPago: 'desc' } },
         pasajeros: { where: { baja: null } },
-        documentos: { orderBy: [{ tipo: 'asc' }, { version: 'desc' }] },
+        // Igual que en GET /api/documentos: no se devuelven las filas con
+        // la versión reservada pero sin archivo todavía (hallazgo A-2).
+        documentos: { where: { url: { not: null } }, orderBy: [{ tipo: 'asc' }, { version: 'desc' }] },
       },
     })
     if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' })
