@@ -11,5 +11,11 @@ export const loginRateLimit = rateLimit({
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  // Hallazgo C-4: sólo cuentan los intentos fallidos. Un vendedor que
+  // entra bien diez veces en el día no gasta el presupuesto de intentos,
+  // y el límite queda apuntando a lo que realmente interesa frenar, que
+  // es la prueba de contraseñas. Requiere `app.set('trust proxy', 1)`
+  // en index.ts para que la IP sea la real y no la del proxy.
+  skipSuccessfulRequests: true,
   message: { error: 'Demasiados intentos de login. Esperá unos minutos y volvé a intentar.' },
 })

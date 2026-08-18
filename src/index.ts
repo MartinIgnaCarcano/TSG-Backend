@@ -30,6 +30,17 @@ import healthRouter from './routes/health'
 
 const app = express()
 
+// Hallazgo C-4 de la auditoría de ingeniería: detrás de un proxy (Render,
+// ngrok) todos los requests llegan con la IP del proxy, así que
+// express-rate-limit veía una sola IP para todo el mundo. El limitador
+// del login pasaba a ser global: cinco intentos fallidos de cualquiera
+// dejaban a la agencia entera sin poder loguearse por quince minutos, y
+// el atacante seguía probando igual. Con `trust proxy` en 1 se toma la
+// IP real del primer salto (X-Forwarded-For), que es la topología tanto
+// de Render como de ngrok. No se pone `true` (confiar en toda la cadena)
+// porque eso permitiría falsear la IP de origen a mano.
+app.set('trust proxy', 1)
+
 // Fase M4 — log estructurado de cada request con request-id correlacionable
 // (header `x-request-id` si el cliente lo manda, o uno generado). Reemplaza
 // los console.log/console.error sueltos del server: `req.log` (dentro de
