@@ -5,7 +5,14 @@
 // saldo, inferencia de fechas y generación de recordatorios vive acá,
 // donde se puede testear sin levantar Express.
 // =====================================================
-import { EstadoReserva, MedioPago, Prisma, PrismaClient, TipoRecordatorio } from '@prisma/client'
+import {
+  EstadoReserva,
+  MedioPago,
+  Prisma,
+  PrismaClient,
+  TipoDocumento,
+  TipoRecordatorio,
+} from '@prisma/client'
 import { prisma } from '../lib/prisma'
 
 type Db = PrismaClient | Prisma.TransactionClient
@@ -257,6 +264,55 @@ export async function reabrirRecordatoriosSiCorresponde(
   if (pendiente > 0) {
     await reabrirRecordatoriosPagoSaldo(db, reservaId)
   }
+}
+
+// =====================================================
+// Versionado de documentos emitidos (Fase B/C)
+// =====================================================
+
+/**
+ * Reserva de forma atómica el próximo número de versión de un documento
+ * (voucher o contrato) de una reserva, creando la fila de
+ * `DocumentoGenerado` todavía sin archivo asociado.
+ *
+ * Hallazgo A-2 de la auditoría de ingeniería: antes las rutas hacían
+ * `count(...) + 1` fuera de toda transacción y creaban el documento
+ * después de generar el PDF. Entre el conteo y la inserción cabía otra
+ * emisión, así que dos clicks simultáneos en "Emitir voucher" producían
+ * dos documentos versión 1 y no había forma de saber cuál era el vigente.
+ *
+ * Se resuelve en dos tiempos, y no envolviendo todo en una transacción
+ * larga, porque generar el PDF implica levantar un Chromium o llamar a un
+ * servicio externo: mantener una transacción de base abierta durante esos
+ * segundos sería peor que el problema que resuelve.
+ *
+ *   1. Acá: se toma el lock de la fila de la reserva, se cuenta y se
+ *      inserta la fila con el número reservado (`url` en null).
+ *   2. En la ruta: se genera el PDF y se completan `url`, `hash` y
+ *      `datosSnapshot` sobre esa misma fila.
+ *
+ * El índice único `(reservaId, tipo, version)` respalda la invariante: si
+ * algo se saltara este camino, la base lo rechaza.
+ */
+export async function reservarVersionDocumento(
+  db: PrismaClient,
+  reservaId: string,
+  tipo: TipoDocumento,
+): Promise<{ id: string; version: number }> {
+  return db.$transaction(async (tx) => {
+    // Mismo lock que usa `anularPago`: serializa las emisiones
+    // concurrentes sobre una misma reserva.
+    await tx.$queryRaw`SELECT id FROM reservas WHERE id = ${reservaId} FOR UPDATE`
+
+    const versionesPrevias = await tx.documentoGenerado.count({ where: { reservaId, tipo } })
+    const version = versionesPrevias + 1
+
+    const doc = await tx.documentoGenerado.create({
+      data: { reservaId, tipo, version, datosSnapshot: {} },
+    })
+
+    return { id: doc.id, version }
+  })
 }
 
 // =====================================================

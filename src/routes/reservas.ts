@@ -20,6 +20,7 @@ import {
   cerrarRecordatoriosSiCorresponde,
   transicionarEstado,
   registrarPago,
+  reservarVersionDocumento,
 } from '../services/reservas.service'
 import { parsePaginacion, paginarArray } from '../lib/pagination'
 
@@ -330,10 +331,11 @@ router.post('/:id/voucher', async (req: Request, res: Response, next: NextFuncti
 
     const viaje = reserva.cotizacion.viaje
     const cotizacion = reserva.cotizacion
-    const versionesPrevias = await prisma.documentoGenerado.count({
-      where: { reservaId: id, tipo: TipoDocumento.VOUCHER },
-    })
-    const version = versionesPrevias + 1
+    // Hallazgo A-2: el número de versión se reserva de forma atómica (con
+    // lock de la fila de la reserva) antes de generar el PDF, en vez de
+    // calcularse con un count() suelto que dos emisiones simultáneas
+    // resolvían al mismo número. Ver reservarVersionDocumento().
+    const { id: documentoId, version } = await reservarVersionDocumento(prisma, id, TipoDocumento.VOUCHER)
     const numeroVoucher = `VOU-${Date.now()}`
 
     const snapshot: VoucherSnapshot = {
@@ -379,14 +381,20 @@ router.post('/:id/voucher', async (req: Request, res: Response, next: NextFuncti
     }
 
     const html = construirVoucherHtml(snapshot)
-    const guardado = await generarYGuardarDocumento(html, `voucher-${reserva.numeroReserva}`)
+    // Si la generación del PDF falla, se libera la versión reservada para
+    // que el próximo intento no arranque en el número siguiente dejando un
+    // hueco en la numeración.
+    const guardado = await generarYGuardarDocumento(html, `voucher-${reserva.numeroReserva}`).catch(
+      async (e) => {
+        await prisma.documentoGenerado.delete({ where: { id: documentoId } }).catch(() => {})
+        throw e
+      },
+    )
 
     const documento = await prisma.$transaction(async (tx) => {
-      const doc = await tx.documentoGenerado.create({
+      const doc = await tx.documentoGenerado.update({
+        where: { id: documentoId },
         data: {
-          reservaId: id,
-          tipo: TipoDocumento.VOUCHER,
-          version,
           url: guardado.url,
           hash: guardado.hash,
           datosSnapshot: snapshot as any,
@@ -438,10 +446,8 @@ router.post('/:id/contrato', async (req: Request, res: Response, next: NextFunct
     }
 
     const viaje = reserva.cotizacion.viaje
-    const versionesPrevias = await prisma.documentoGenerado.count({
-      where: { reservaId: id, tipo: TipoDocumento.CONTRATO },
-    })
-    const version = versionesPrevias + 1
+    // Hallazgo A-2: mismo criterio que en el voucher.
+    const { id: documentoId, version } = await reservarVersionDocumento(prisma, id, TipoDocumento.CONTRATO)
     const numeroContrato = `CON-${Date.now()}`
 
     const snapshot: ContratoSnapshot = {
@@ -472,13 +478,16 @@ router.post('/:id/contrato', async (req: Request, res: Response, next: NextFunct
     }
 
     const html = construirContratoHtml(snapshot)
-    const guardado = await generarYGuardarDocumento(html, `contrato-${reserva.numeroReserva}`)
+    const guardado = await generarYGuardarDocumento(html, `contrato-${reserva.numeroReserva}`).catch(
+      async (e) => {
+        await prisma.documentoGenerado.delete({ where: { id: documentoId } }).catch(() => {})
+        throw e
+      },
+    )
 
-    const documento = await prisma.documentoGenerado.create({
+    const documento = await prisma.documentoGenerado.update({
+      where: { id: documentoId },
       data: {
-        reservaId: id,
-        tipo: TipoDocumento.CONTRATO,
-        version,
         url: guardado.url,
         hash: guardado.hash,
         datosSnapshot: snapshot as any,

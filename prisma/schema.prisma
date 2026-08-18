@@ -253,6 +253,12 @@ model DocumentoGenerado {
   medioAceptacion String?  @map("medio_aceptacion")
 
   @@index([reservaId, tipo])
+  // Hallazgo A-2: la versión se calculaba con un count() fuera de
+  // transacción, así que dos emisiones simultáneas generaban dos
+  // documentos con la misma versión. La restricción hace imposible el
+  // duplicado; la reserva atómica del número vive en
+  // `reservarVersionDocumento` (services/reservas.service.ts).
+  @@unique([reservaId, tipo, version])
   @@map("documentos_generados")
 }
 
