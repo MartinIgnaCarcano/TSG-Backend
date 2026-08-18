@@ -22,7 +22,7 @@ import {
   registrarPago,
   reservarVersionDocumento,
 } from '../services/reservas.service'
-import { parsePaginacion, paginarArray } from '../lib/pagination'
+import { parsePaginacion } from '../lib/pagination'
 import { operacionesCarasRateLimit } from '../middleware/rateLimits'
 import { generarNumero } from '../lib/identificadores'
 
@@ -33,53 +33,89 @@ const router = Router()
 //   ?estado=EN_PROCESO
 //   ?vencidas=true   → reservas con saldoPendiente>0 y fechaViaje <= now+7d (usadas por el Flujo 4)
 //   ?page&?pageSize  → opcional; sin esto, devuelve array plano (compat n8n/front)
+// Relaciones que acompañan a cada reserva del listado. Se extrae a una
+// constante porque ahora se usa en las dos ramas (con y sin paginación).
+const INCLUDE_LISTADO = {
+  cliente: true,
+  cotizacion: {
+    include: {
+      viaje: {
+        include: {
+          origen: true,
+          destino: true,
+          tramos: { where: { baja: null }, orderBy: { orden: 'asc' as const } },
+        },
+      },
+    },
+  },
+}
+
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const clienteId = req.query.clienteId as string | undefined
     const estado = req.query.estado as EstadoReserva | undefined
     const vencidas = req.query.vencidas === 'true'
 
-    let where: any = { baja: null }
+    const where: any = { baja: null }
     if (clienteId) where.clienteId = clienteId
     if (estado) where.estado = estado
 
-    let reservas = await prisma.reserva.findMany({
-      where,
-      include: {
-        cliente: true,
-        cotizacion: {
-          include: {
-            viaje: {
-              include: {
-                origen: true,
-                destino: true,
-                tramos: { where: { baja: null }, orderBy: { orden: 'asc' } },
-              },
-            },
-          },
-        },
-      },
-      orderBy: { alta: 'desc' },
-    })
-
-    // Filtro "vencidas" se hace en JS porque saldoPendiente es calculado
+    // Hallazgo M-2 de la auditoría de ingeniería: antes este endpoint
+    // traía la tabla entera con todas sus relaciones anidadas y después
+    // filtraba y paginaba en JavaScript. Con diez reservas no se nota; el
+    // problema es que el trabajo argumenta escalabilidad y esto es
+    // exactamente lo que no escala.
+    //
+    // El filtro `vencidas` estaba en JS por una razón real: compara dos
+    // columnas (`montoFinal > saldoPagado`) y la API de consultas de
+    // Prisma no expresa comparaciones entre columnas. Se resuelve con una
+    // consulta cruda que devuelve sólo los ids y se usa como filtro — la
+    // comparación la hace PostgreSQL y el resto del endpoint no cambia.
     if (vencidas) {
       const limite = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      reservas = reservas.filter((r) => {
-        if (r.estado === 'CANCELADA') return false
-        const pendiente = Number(r.montoFinal) - Number(r.saldoPagado)
-        if (pendiente <= 0) return false
-        if (!r.fechaViaje) return false
-        return new Date(r.fechaViaje) <= limite
-      })
+      const filas = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id
+          FROM reservas
+         WHERE baja IS NULL
+           AND estado::text <> 'CANCELADA'
+           AND fecha_viaje IS NOT NULL
+           AND fecha_viaje <= ${limite}
+           AND monto_final > saldo_pagado
+      `
+      where.id = { in: filas.map((f) => f.id) }
     }
 
-    const conSaldo = reservas.map(conSaldoPendiente)
-
     const paginacion = parsePaginacion(req.query as Record<string, unknown>)
-    if (!paginacion) return res.json(conSaldo)
 
-    res.json(paginarArray(conSaldo, paginacion))
+    // Sin ?page/?pageSize se devuelve el array plano de siempre, por
+    // compatibilidad con el front y con los workflows de n8n.
+    if (!paginacion) {
+      const reservas = await prisma.reserva.findMany({
+        where,
+        include: INCLUDE_LISTADO,
+        orderBy: { alta: 'desc' },
+      })
+      return res.json(reservas.map(conSaldoPendiente))
+    }
+
+    const [reservas, total] = await Promise.all([
+      prisma.reserva.findMany({
+        where,
+        include: INCLUDE_LISTADO,
+        orderBy: { alta: 'desc' },
+        skip: paginacion.skip,
+        take: paginacion.take,
+      }),
+      prisma.reserva.count({ where }),
+    ])
+
+    res.json({
+      data: reservas.map(conSaldoPendiente),
+      page: paginacion.page,
+      pageSize: paginacion.pageSize,
+      total,
+      totalPages: Math.ceil(total / paginacion.pageSize),
+    })
   } catch (e) {
     next(e)
   }
