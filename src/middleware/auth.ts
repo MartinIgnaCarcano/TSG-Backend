@@ -11,6 +11,7 @@
 // front ya lo pueda usar, pero nada se bloquea todavía.
 // =====================================================
 import { Request, Response, NextFunction } from 'express'
+import crypto from 'crypto'
 import jwt from 'jsonwebtoken'
 import { config } from '../config'
 
@@ -39,13 +40,39 @@ function isPublic(req: Request): boolean {
   return PUBLIC_PATH_PATTERNS.some((p) => p.method === req.method && p.regex.test(req.path))
 }
 
+// Hallazgo M-7: la comparación de la API key se hacía con `===`, que
+// corta apenas encuentra el primer carácter distinto y por lo tanto tarda
+// distinto según cuánto se acertó. Es el ejemplo de manual de comparación
+// de secretos: se hace en tiempo constante. El riesgo real a través de la
+// red es bajo, pero el arreglo es de tres líneas y ya se usa el mismo
+// criterio para las firmas de documentos (lib/documentos.ts).
+function apiKeyValida(recibida: string): boolean {
+  if (!config.n8nApiKey) return false
+  const a = Buffer.from(recibida, 'utf8')
+  const b = Buffer.from(config.n8nApiKey, 'utf8')
+  if (a.length !== b.length) return false
+  return crypto.timingSafeEqual(a, b)
+}
+
+// Hallazgo M-5: se fija el algoritmo esperado en lugar de aceptar el que
+// venga declarado en el propio token. No hay una explotación conocida con
+// un secreto simétrico, pero dejar que el atacante elija el algoritmo de
+// verificación es exactamente el patrón que habilita la confusión de
+// algoritmos, y fijarlo no cuesta nada.
+function verificarToken(token: string): { id: number; email: string } {
+  return jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as {
+    id: number
+    email: string
+  }
+}
+
 export function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
   if (!config.authEnabled) return next()
   if (isPublic(req)) return next()
 
   const apiKey = req.header('x-api-key')
   if (apiKey) {
-    if (apiKey === config.n8nApiKey) return next()
+    if (apiKeyValida(apiKey)) return next()
     return res.status(401).json({ error: 'API key inválida' })
   }
 
@@ -56,7 +83,7 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
 
   const token = authHeader.slice('Bearer '.length)
   try {
-    const payload = jwt.verify(token, config.jwtSecret) as { id: number; email: string }
+    const payload = verificarToken(token)
     req.admin = { id: payload.id, email: payload.email }
     return next()
   } catch {
@@ -82,7 +109,7 @@ export function requireAdminBearer(req: AuthRequest, res: Response, next: NextFu
 
   const token = authHeader.slice('Bearer '.length)
   try {
-    const payload = jwt.verify(token, config.jwtSecret) as { id: number; email: string }
+    const payload = verificarToken(token)
     req.admin = { id: payload.id, email: payload.email }
     return next()
   } catch {
