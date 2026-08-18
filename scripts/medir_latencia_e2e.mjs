@@ -57,7 +57,7 @@ const RUNS = Number(process.env.RUNS ?? 5)             // corridas POR condició
 const PAUSA_MS = Number(process.env.PAUSA_MS ?? 6000)  // plan gratuito de Groq: 12k TPM
 const API_KEY = process.env.N8N_API_KEY || ''
 const KEY = process.env.GROQ_API_KEY
-const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
 const TEMP = Number(process.env.GROQ_TEMP ?? 0.2)
 const HOY = new Date().toISOString().slice(0, 10)
 
