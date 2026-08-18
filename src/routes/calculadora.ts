@@ -17,7 +17,10 @@ const router = Router()
 router.post('/buscar', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { origenIATA, destinoIATA, fechaIda, fechaVuelta, clase, adultos } = req.body
-    console.log('[calculadora] ▶ request recibido:', { origenIATA, destinoIATA, fechaIda, fechaVuelta, clase, adultos })
+    // Hallazgo B-4: pasa al logger estructurado de la Fase M4, para que
+    // estas líneas queden correlacionadas por request-id como todas las
+    // demás (y en JSON en producción, no sueltas por stdout).
+    req.log?.info({ origenIATA, destinoIATA, fechaIda, fechaVuelta, clase, adultos }, 'calculadora: búsqueda recibida')
     const CLASES_VALIDAS = ['ECONOMICA', 'PREMIUM_ECONOMICA', 'EJECUTIVA', 'PRIMERA']
 
     // Validaciones básicas
@@ -64,7 +67,7 @@ router.post('/buscar', async (req: Request, res: Response, next: NextFunction) =
       adultos: adultos ? Number(adultos) : undefined,
     })
 
-    console.log(`[calculadora] ◀ devolviendo ${opciones.length} opciones`)
+    req.log?.info({ total: opciones.length }, 'calculadora: búsqueda resuelta')
     return res.json({
       ok: true,
       origenIATA: String(origenIATA).toUpperCase(),
