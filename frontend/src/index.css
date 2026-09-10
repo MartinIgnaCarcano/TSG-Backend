@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =====================================================
+   Tokens de marca STG — look "agencia de viajes" en azul
+   océano + turquesa de acento. Tema claro por defecto;
+   `.dark` en <html> activa la variante oscura.
+   ===================================================== */
+:root {
+  --bg: theme('colors.slate.50');
+  --surface: theme('colors.white');
+  --text: theme('colors.slate.900');
+  --text-muted: theme('colors.slate.500');
+  --border: theme('colors.slate.200');
+  --accent: theme('colors.turquesa.500');
+  --accent-strong: theme('colors.turquesa.600');
+  --brand: theme('colors.oceano.600');
+}
+
+html.dark {
+  --bg: theme('colors.slate.900');
+  --surface: theme('colors.slate.800');
+  --text: theme('colors.slate.100');
+  --text-muted: theme('colors.slate.400');
+  --border: theme('colors.slate.700');
+  --accent: theme('colors.turquesa.400');
+  --accent-strong: theme('colors.turquesa.300');
+  --brand: theme('colors.oceano.400');
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Sora', sans-serif;
+}
