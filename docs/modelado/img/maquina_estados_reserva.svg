@@ -73,5 +73,5 @@
 <path d="M720,1136 L762,1136" stroke="#78838f" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#ac)"/>
 <text x="770" y="1141" text-anchor="start" font-size="12.5" fill="#78838f" font-weight="400">cancelación explícita</text>
 <text x="50" y="1164" text-anchor="start" font-size="12" fill="#5b6b7d" font-weight="400">Doble borde = estado terminal (sin transiciones de salida).</text>
-<text x="50" y="1182" text-anchor="start" font-size="12" fill="#5b6b7d" font-weight="400">7 estados · 42 pares posibles · 14 transiciones permitidas · 28 rechazadas con TransicionInvalidaError.</text>
+<text x="50" y="1182" text-anchor="start" font-size="12" fill="#5b6b7d" font-weight="400">7 estados · 42 pares posibles · 13 transiciones permitidas · 29 rechazadas con TransicionInvalidaError.</text>
 </svg>
