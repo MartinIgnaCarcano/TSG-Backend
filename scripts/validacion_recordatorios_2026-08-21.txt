@@ -1,0 +1,70 @@
+Instrumentación del flujo de recordatorios — Objetivo específico 2
+==================================================================
+API: https://stg-backend-production.up.railway.app
+Fecha de corrida: 2026-08-21   ·   modo: sin n8n (no se envía ningún mensaje)
+
+✓ La API responde.
+
+⚠️  Estás apuntando a un entorno que parece de PRODUCCIÓN.
+   El script va a crear seis recordatorios de prueba y borrarlos al final.
+   No toca reservas, clientes, pagos ni documentos.
+
+Reserva elegida: RES-SEED-005
+  Cliente: Carla Sosa · tel +5492611234571
+
+Sembrando un recordatorio vencido de cada tipo...
+  · PAGO_SALDO   → cmt3gi9610029nb1qwwtg1nw1
+  · CHECK_IN     → cmt3gi9dm002bnb1q7pg0ie36
+  · POST_VIAJE   → cmt3gi9kv002dnb1qo98pw2a4
+  · CLIMA        → cmt3gi9te002fnb1q8lg3epj4
+  · VOUCHER      → cmt3gia0n002hnb1qwbtxwlrk
+  · CONTRATO     → cmt3gia8f002jnb1qx80qw49w
+
+C1 · ¿La consulta del flujo los recupera?
+  Recuperados 6 de 6  →  ✓ CUMPLE
+
+C2 · ¿Cada tipo produce el mensaje propio de su tipo?
+  (según el switch del nodo «Armar mensaje según tipo» del Flujo3)
+  · PAGO_SALDO   ✓ mensaje propio
+  · CHECK_IN     ✓ mensaje propio
+  · POST_VIAJE   ✓ mensaje propio
+  · CLIMA        ✗ cae a la rama por defecto (mensaje genérico)
+  · VOUCHER      ✗ cae a la rama por defecto (mensaje genérico)
+  · CONTRATO     ✗ cae a la rama por defecto (mensaje genérico)
+  →  ✗ NO CUMPLE
+
+  Hallazgo: CLIMA, VOUCHER, CONTRATO están declarados en el enum TipoRecordatorio
+  (prisma/schema.prisma) pero el flujo no tiene un case para ellos. VOUCHER y
+  CONTRATO se manejan por webhook en el Flujo7, lo cual es correcto pero hay
+  que decirlo en §4.4.3 y §5.5, donde hoy se afirma que los seis salen del cron.
+  CLIMA, en cambio, no está implementado en ningún flujo: no hay ninguna
+  llamada a una API meteorológica en el repositorio, pese a que §1.6 y §4.1 la
+  listan entre los servicios externos consumidos y el OE2 la compromete.
+
+Ejecutando los recordatorios por la misma vía que usa el flujo (PATCH /ejecutar)...
+  6 marcados como ejecutados.
+
+C3 · ¿Una segunda corrida vuelve a levantarlos?
+  Reaparecen 0 de 6  →  ✓ CUMPLE
+
+C4 · ¿Reejecutar uno ya ejecutado lo reactiva?
+  Segunda ejecución: aceptada
+  Estado final: ejecutado=true  →  ✓ CUMPLE
+  Nota: que la API acepte el PATCH no implica reenvío. Lo que garantiza el no
+  duplicado es que el flujo solo consulta ?pendientes=true, verificado en C3.
+
+Limpiando los recordatorios de prueba...
+  Limpieza: 6 borrado(s)
+
+==================================================================
+RESULTADO — Objetivo específico 2 (notificaciones proactivas)
+  C1 · Captura de recordatorios vencidos      ✓ CUMPLE
+  C2 · Especificidad del mensaje por tipo     ✗ NO CUMPLE
+  C3 · Deduplicación entre corridas           ✓ CUMPLE
+  C4 · Idempotencia de la ejecución           ✓ CUMPLE
+
+  3 de 4 criterios cumplidos.
+
+  Reportar en §5.5 con este detalle. Un 3 de 4 con el incumplimiento explicado
+  vale más que declarar la funcionalidad "implementada y no validada", que es
+  lo que el capítulo dice hoy.

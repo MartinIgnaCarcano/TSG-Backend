@@ -1,0 +1,8 @@
+parte	turnos	origen	destino	iata_o	iata_d	fecha_ida	fecha_vta	ambigua	esc
+A	Hola! Buenas tardes, queria cotizar un viaje de Mendoza a cancun para enero 2027, 2 personas	Mendoza	Cancún						7
+A	Buenas, queria saber si tienen disponibilidad para un viaje a rio, fechas y costo		Río de Janeiro						7
+A	Buen dia, queria saber cuanto sale ir a cancun con amigos		Cancún						7
+B	Tienen seguro de asistencia al viajero en cancun?								
+B	Barra libre hay?								
+B	Cada cuanto la limpieza?								
+B	Puedo llevar 2 mochilas en el avion?								

@@ -1,0 +1,77 @@
+Instrumentación del flujo de recordatorios — Objetivo específico 2
+==================================================================
+API: https://stg-backend-production.up.railway.app
+Fecha de corrida: 2026-08-24   ·   modo: CON ejecución real del Flujo3 (envía WhatsApp)
+
+✓ La API responde.
+
+⚠️  Estás apuntando a un entorno que parece de PRODUCCIÓN.
+   El script va a crear seis recordatorios de prueba y borrarlos al final.
+   No toca reservas, clientes, pagos ni documentos.
+   Y con --con-n8n se van a enviar mensajes de WhatsApp REALES.
+
+Reserva elegida: RES-1787411108749
+  Cliente: Emanuel Perez · tel +5492614179824
+
+⚠️  Con --con-n8n, el Flujo3 va a mandar WhatsApp a +5492614179824.
+
+Sembrando un recordatorio vencido de cada tipo...
+  · PAGO_SALDO   → cmt7gvooh002xp61p9k4b2uiz
+  · CHECK_IN     → cmt7gvp4y002zp61pk3zr8pj9
+  · POST_VIAJE   → cmt7gvpc80031p61p1w4e2zju
+  · CLIMA        → cmt7gvpjx0033p61ppxxjvcn1
+  · VOUCHER      → cmt7gvpr30035p61pa4lnx8t8
+  · CONTRATO     → cmt7gvpy60037p61pjyqt0p3n
+
+C1 · ¿La consulta del flujo los recupera?
+  Recuperados 6 de 6  →  ✓ CUMPLE
+
+C2 · ¿Cada tipo produce el mensaje propio de su tipo?
+  (según el switch del nodo «Armar mensaje según tipo» del Flujo3)
+  · PAGO_SALDO   ✓ mensaje propio
+  · CHECK_IN     ✓ mensaje propio
+  · POST_VIAJE   ✓ mensaje propio
+  · CLIMA        ✓ mensaje propio
+  · VOUCHER      ✗ cae a la rama por defecto (mensaje genérico)
+  · CONTRATO     ✗ cae a la rama por defecto (mensaje genérico)
+  →  ✗ NO CUMPLE
+
+  Hallazgo: VOUCHER, CONTRATO están declarados en el enum TipoRecordatorio
+  (prisma/schema.prisma) pero el flujo del cron no tiene un case para ellos.
+  No es un defecto: VOUCHER y CONTRATO se despachan por webhook desde el
+  Flujo7 en el momento en que el documento se emite, que es lo correcto para
+  un aviso disparado por un evento y no por una fecha. Lo que sí corresponde
+  corregir es el texto de §4.4.3 y §5.5, donde hoy se afirma que los seis
+  tipos salen del nodo Cron: son cuatro por cron y dos por webhook.
+
+  Corresponde declarar que el criterio C2, tal como fue fijado a priori,
+  presupone que los seis tipos se despachan desde el mismo flujo. Ese
+  presupuesto era incorrecto. El criterio no se redefine con posterioridad
+  a la corrida: se reporta como no cumplido y se explica el motivo.
+
+Ahora ejecutá el Flujo3_Recordatorios a mano desde n8n («Execute workflow»).
+
+C3 · ¿Una segunda corrida vuelve a levantarlos?
+  Reaparecen 0 de 6  →  ✓ CUMPLE
+
+C4 · ¿Reejecutar uno ya ejecutado lo reactiva?
+  Segunda ejecución: aceptada
+  Estado final: ejecutado=true  →  ✓ CUMPLE
+  Nota: que la API acepte el PATCH no implica reenvío. Lo que garantiza el no
+  duplicado es que el flujo solo consulta ?pendientes=true, verificado en C3.
+
+Limpiando los recordatorios de prueba...
+  Limpieza: 6 borrado(s)
+
+==================================================================
+RESULTADO — Objetivo específico 2 (notificaciones proactivas)
+  C1 · Captura de recordatorios vencidos      ✓ CUMPLE
+  C2 · Especificidad del mensaje por tipo     ✗ NO CUMPLE
+  C3 · Deduplicación entre corridas           ✓ CUMPLE
+  C4 · Idempotencia de la ejecución           ✓ CUMPLE
+
+  3 de 4 criterios cumplidos.
+
+  Reportar en §5.5 con este detalle. Un 3 de 4 con el incumplimiento explicado
+  vale más que declarar la funcionalidad "implementada y no validada", que es
+  lo que el capítulo dice hoy.

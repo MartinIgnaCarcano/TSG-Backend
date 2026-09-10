@@ -1,0 +1,9 @@
+parte	turnos	origen	destino	iata_o	iata_d	fecha_ida	fecha_vta	ambigua	esc
+A	Hola, buenas tardes! Quería saber el precio de un vuelo ida y vuelta de Mendoza a Santiago. Saldría el 16/09 hasta el 28/09. Espero su respuesta, gracias!	Mendoza	Santiago de Chile	MDZ	SCL	09-16	09-28		1
+A	Hola! Cómo va? Mi nombre es Benjamín. Quería saber el precio del vuelo de Mendoza a Buenos Aires con fecha del 07/12 al 14/12, gracias.	Mendoza	Buenos Aires	MDZ		12-07	12-14	x	4
+A	Buenass, quería saber el precio del vuelo de Mendoza a Córdoba para dos personas. Saldríamos el 17/02 hasta el 26/02. Aguardo respuesta.	Mendoza	Córdoba	MDZ	COR	02-17	02-26		1
+B	Buenas! Estoy yendo a Colombia y necesito hospedaje para hoy. Llego esta tarde y todavía no tengo alojamiento. Podrías asesorarme?								
+B	Qué onda? Me dirías el precio para alquilar un auto dentro de dos semanas en Mendoza								
+B	Hola! No encuentro el hotel, puse la ubicación de Google maps que me enviaron pero no coincide donde estoy parado. Me podrían dar algún dato más para poder ubicarlo?								
+B	Buenas, necesito averiguar excursiones en Madrid. Viajo dentro de tres meses y todavía no armo cronograma. Me pasarían info?								
+B	Hola! Necesito precios de hoteles en París, en lo posible de 3 a 4 estrellas.								

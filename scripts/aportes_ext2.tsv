@@ -1,0 +1,9 @@
+parte	turnos	origen	destino	iata_o	iata_d	fecha_ida	fecha_vta	ambigua	esc
+A	Hola buenas necesito el precio del un vuelo de MDZ a GRU para diciembre	Mendoza	São Paulo						7
+A	Necesito saber el precio de un vuelo Mendoza a Madrid solo de ida para mayo del 2026	Mendoza	Madrid						7
+A	Hola consulto por un vuelo de Mendoza a el Calafate en marzo del 2026	Mendoza	El Calafate						7
+B	Hola necesito un seguro de viaje para Europa por 3 meses								
+B	Necesito excursiones para hacer en Italia								
+B	Tenes algún paquete de hotel en el caribe ?								
+B	Necesito un traslado del aeropuerto de Mendoza al centro de la ciudad								
+B	Consulto por precios de hoteles all inclusive en Cancún								

@@ -1,0 +1,993 @@
+{
+  "modelo": "openai/gpt-oss-120b",
+  "temperatura": 0.2,
+  "fecha": "2026-08-19",
+  "promptHash": "e12bf0564a329fb3",
+  "etiqueta": "remedicion",
+  "resultados": [
+    {
+      "id": "1.1.eq",
+      "esc": 1,
+      "autor": "equipo",
+      "error": false,
+      "ms": 658,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Madrid\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"MAD\",\n  \"fechaIda\": \"2026-08-10\",\n  \"fechaVuelta\": \"2026-08-20\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "MAD"
+          ],
+          "obtenido": "MAD",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2027-08-10",
+            "2026-08-10"
+          ],
+          "obtenido": "2026-08-10",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-08-20",
+            "2027-08-20"
+          ],
+          "obtenido": "2026-08-20",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "1.2.eq",
+      "esc": 1,
+      "autor": "equipo",
+      "error": false,
+      "ms": 791,
+      "texto": "{\n  \"origenNombre\": \"Córdoba\",\n  \"destinoNombre\": \"Miami\",\n  \"origenIATA\": \"COR\",\n  \"destinoIATA\": \"MIA\",\n  \"fechaIda\": \"2026-09-05\",\n  \"fechaVuelta\": \"2026-09-15\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "COR"
+          ],
+          "obtenido": "COR",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "MIA"
+          ],
+          "obtenido": "MIA",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-09-05",
+            "2027-09-05"
+          ],
+          "obtenido": "2026-09-05",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-09-15",
+            "2027-09-15"
+          ],
+          "obtenido": "2026-09-15",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "1.3.eq",
+      "esc": 1,
+      "autor": "equipo",
+      "error": false,
+      "ms": 947,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Cancún\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"CUN\",\n  \"fechaIda\": \"2026-12-20\",\n  \"fechaVuelta\": \"2026-12-30\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "CUN"
+          ],
+          "obtenido": "CUN",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-12-20",
+            "2027-12-20"
+          ],
+          "obtenido": "2026-12-20",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-12-30",
+            "2027-12-30"
+          ],
+          "obtenido": "2026-12-30",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "1.4.eq",
+      "esc": 1,
+      "autor": "equipo",
+      "error": false,
+      "ms": 811,
+      "texto": "{\n  \"origenNombre\": \"Córdoba\",\n  \"destinoNombre\": \"Barcelona\",\n  \"origenIATA\": \"COR\",\n  \"destinoIATA\": \"BCN\",\n  \"fechaIda\": \"2026-11-01\",\n  \"fechaVuelta\": \"2026-11-10\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "COR"
+          ],
+          "obtenido": "COR",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "BCN"
+          ],
+          "obtenido": "BCN",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-11-01",
+            "2027-11-01"
+          ],
+          "obtenido": "2026-11-01",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-11-10",
+            "2027-11-10"
+          ],
+          "obtenido": "2026-11-10",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "1.5.eq",
+      "esc": 1,
+      "autor": "equipo",
+      "error": false,
+      "ms": 689,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Río de Janeiro\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"GIG\",\n  \"fechaIda\": \"2026-10-02\",\n  \"fechaVuelta\": \"2026-10-12\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "GIG"
+          ],
+          "obtenido": "GIG",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-10-02",
+            "2027-10-02"
+          ],
+          "obtenido": "2026-10-02",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-10-12",
+            "2027-10-12"
+          ],
+          "obtenido": "2026-10-12",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "2.1.eq",
+      "esc": 2,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1140,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Madrid\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"MAD\",\n  \"fechaIda\": \"2026-08-10\",\n  \"fechaVuelta\": \"2026-08-20\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "MAD"
+          ],
+          "obtenido": "MAD",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2027-08-10",
+            "2026-08-10"
+          ],
+          "obtenido": "2026-08-10",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-08-20",
+            "2027-08-20"
+          ],
+          "obtenido": "2026-08-20",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "2.2.eq",
+      "esc": 2,
+      "autor": "equipo",
+      "error": false,
+      "ms": 740,
+      "texto": "{\n  \"origenNombre\": \"Córdoba\",\n  \"destinoNombre\": \"Miami\",\n  \"origenIATA\": \"COR\",\n  \"destinoIATA\": \"MIA\",\n  \"fechaIda\": \"2026-09-05\",\n  \"fechaVuelta\": \"2026-09-15\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "COR"
+          ],
+          "obtenido": "COR",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "MIA"
+          ],
+          "obtenido": "MIA",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-09-05",
+            "2027-09-05"
+          ],
+          "obtenido": "2026-09-05",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-09-15",
+            "2027-09-15"
+          ],
+          "obtenido": "2026-09-15",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "2.3.eq",
+      "esc": 2,
+      "autor": "equipo",
+      "error": false,
+      "ms": 779,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Río de Janeiro\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"GIG\",\n  \"fechaIda\": \"2026-10-02\",\n  \"fechaVuelta\": \"2026-10-12\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "GIG"
+          ],
+          "obtenido": "GIG",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-10-02",
+            "2027-10-02"
+          ],
+          "obtenido": "2026-10-02",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-10-12",
+            "2027-10-12"
+          ],
+          "obtenido": "2026-10-12",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "2.4.eq",
+      "esc": 2,
+      "autor": "equipo",
+      "error": false,
+      "ms": 762,
+      "texto": "{\n  \"origenNombre\": \"Córdoba\",\n  \"destinoNombre\": \"Barcelona\",\n  \"origenIATA\": \"COR\",\n  \"destinoIATA\": \"BCN\",\n  \"fechaIda\": \"2026-11-01\",\n  \"fechaVuelta\": \"2026-11-10\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "COR"
+          ],
+          "obtenido": "COR",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "BCN"
+          ],
+          "obtenido": "BCN",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-11-01",
+            "2027-11-01"
+          ],
+          "obtenido": "2026-11-01",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-11-10",
+            "2027-11-10"
+          ],
+          "obtenido": "2026-11-10",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "2.5.eq",
+      "esc": 2,
+      "autor": "equipo",
+      "error": false,
+      "ms": 698,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Cancún\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"CUN\",\n  \"fechaIda\": \"2026-12-20\",\n  \"fechaVuelta\": \"2026-12-30\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "CUN"
+          ],
+          "obtenido": "CUN",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-12-20",
+            "2027-12-20"
+          ],
+          "obtenido": "2026-12-20",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-12-30",
+            "2027-12-30"
+          ],
+          "obtenido": "2026-12-30",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "3.1.eq",
+      "esc": 3,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1954,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Madrid\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"MAD\",\n  \"fechaIda\": \"2026-08-10\",\n  \"fechaVuelta\": \"2026-08-20\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "MAD"
+          ],
+          "obtenido": "MAD",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2027-08-10",
+            "2026-08-10"
+          ],
+          "obtenido": "2026-08-10",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-08-20",
+            "2027-08-20"
+          ],
+          "obtenido": "2026-08-20",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "3.2.eq",
+      "esc": 3,
+      "autor": "equipo",
+      "error": false,
+      "ms": 584,
+      "texto": "{\n  \"origenNombre\": \"Córdoba\",\n  \"destinoNombre\": \"Miami\",\n  \"origenIATA\": \"COR\",\n  \"destinoIATA\": \"MIA\",\n  \"fechaIda\": \"2026-09-05\",\n  \"fechaVuelta\": \"2026-09-15\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "COR"
+          ],
+          "obtenido": "COR",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "MIA"
+          ],
+          "obtenido": "MIA",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-09-05",
+            "2027-09-05"
+          ],
+          "obtenido": "2026-09-05",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-09-15",
+            "2027-09-15"
+          ],
+          "obtenido": "2026-09-15",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "3.3.eq",
+      "esc": 3,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1068,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Barcelona\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"BCN\",\n  \"fechaIda\": \"2026-11-01\",\n  \"fechaVuelta\": \"2026-11-10\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "BCN"
+          ],
+          "obtenido": "BCN",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-11-01",
+            "2027-11-01"
+          ],
+          "obtenido": "2026-11-01",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-11-10",
+            "2027-11-10"
+          ],
+          "obtenido": "2026-11-10",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "3.4.eq",
+      "esc": 3,
+      "autor": "equipo",
+      "error": false,
+      "ms": 890,
+      "texto": "{\n  \"origenNombre\": \"Córdoba\",\n  \"destinoNombre\": \"Cancún\",\n  \"origenIATA\": \"COR\",\n  \"destinoIATA\": \"CUN\",\n  \"fechaIda\": \"2026-12-20\",\n  \"fechaVuelta\": \"2026-12-30\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "COR"
+          ],
+          "obtenido": "COR",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "CUN"
+          ],
+          "obtenido": "CUN",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-12-20",
+            "2027-12-20"
+          ],
+          "obtenido": "2026-12-20",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-12-30",
+            "2027-12-30"
+          ],
+          "obtenido": "2026-12-30",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "4.1.eq",
+      "esc": 4,
+      "autor": "equipo",
+      "error": false,
+      "ms": 952,
+      "texto": "¡Genial! Ya tengo parte de la info:\n\n- Origen: Mendoza (MDZ)  \n- Destino: Buenos Aires (¿Ezeiza (EZE) o Aeroparque (AEP)?)  \n- Ida: 10 de agosto de 2026 (2026‑08‑10)  \n- Vuelta: 20 de agosto de 2026 (2026‑08‑20)\n\n¿Me confirmás cuál aeropuerto de Buenos Aires prefieres? 🚀",
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "4.2.eq",
+      "esc": 4,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1219,
+      "texto": "¡Genial! Ya tengo casi todo:\n\n- **Origen:** Buenos Aires (¿Ezeiza (EZE) o Aeroparque (AEP)?)\n- **Destino:** Madrid (MAD)\n- **Ida:** 2026‑09‑05  \n- **Vuelta:** 2026‑09‑15  \n\n¿Me decís cuál aeropuerto de Buenos Aires prefieres? 😊",
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "4.3.eq",
+      "esc": 4,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1966,
+      "texto": "¡Genial! Tengo los datos básicos:\n\n- **Origen:** Buenos Aires (todavía no sé cuál aeropuerto preferís)\n- **Destino:** Miami\n- **Ida:** 1 de noviembre de 2026\n- **Vuelta:** 10 de noviembre de 2026\n\nEn Buenos Aires hay dos aeropuertos: **Ezeiza (EZE)** y **Aeroparque (AEP)**. ¿Cuál te gustaría usar para el vuelo?",
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "4.4.eq",
+      "esc": 4,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1456,
+      "texto": "¡Genial! Tengo los datos que me diste:\n\n- Origen: Córdoba (COR)  \n- Destino: Buenos Aires (¿Ezeiza (EZE) o Aeroparque (AEP)?)  \n- Ida: 20 de diciembre de 2026  \n- Vuelta: 30 de diciembre de 2026  \n\n¿Me confirmás cuál aeropuerto de Buenos Aires prefieres? 🙏",
+      "veredicto": "EXITO"
+    },
+    {
+      "id": "5.1.eq",
+      "esc": 5,
+      "autor": "equipo",
+      "error": false,
+      "ms": 881,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Madrid\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"MAD\",\n  \"fechaIda\": \"2026-08-10\",\n  \"fechaVuelta\": \"2026-08-20\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "MAD"
+          ],
+          "obtenido": "MAD",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2027-08-10",
+            "2026-08-10"
+          ],
+          "obtenido": "2026-08-10",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-08-20",
+            "2027-08-20"
+          ],
+          "obtenido": "2026-08-20",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO",
+      "latencia": 881
+    },
+    {
+      "id": "5.2.eq",
+      "esc": 5,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1095,
+      "texto": "{\n  \"origenNombre\": \"Córdoba\",\n  \"destinoNombre\": \"Miami\",\n  \"origenIATA\": \"COR\",\n  \"destinoIATA\": \"MIA\",\n  \"fechaIda\": \"2026-09-05\",\n  \"fechaVuelta\": \"2026-09-15\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "COR"
+          ],
+          "obtenido": "COR",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "MIA"
+          ],
+          "obtenido": "MIA",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-09-05",
+            "2027-09-05"
+          ],
+          "obtenido": "2026-09-05",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-09-15",
+            "2027-09-15"
+          ],
+          "obtenido": "2026-09-15",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO",
+      "latencia": 1095
+    },
+    {
+      "id": "5.3.eq",
+      "esc": 5,
+      "autor": "equipo",
+      "error": false,
+      "ms": 964,
+      "texto": "{\n  \"origenNombre\": \"Mendoza\",\n  \"destinoNombre\": \"Cancún\",\n  \"origenIATA\": \"MDZ\",\n  \"destinoIATA\": \"CUN\",\n  \"fechaIda\": \"2026-12-20\",\n  \"fechaVuelta\": \"2026-12-30\"\n}",
+      "ranuras": {
+        "origenIATA": {
+          "esperado": [
+            "MDZ"
+          ],
+          "obtenido": "MDZ",
+          "producida": true,
+          "ok": true
+        },
+        "destinoIATA": {
+          "esperado": [
+            "CUN"
+          ],
+          "obtenido": "CUN",
+          "producida": true,
+          "ok": true
+        },
+        "fechaIda": {
+          "esperado": [
+            "2026-12-20",
+            "2027-12-20"
+          ],
+          "obtenido": "2026-12-20",
+          "producida": true,
+          "ok": true
+        },
+        "fechaVuelta": {
+          "esperado": [
+            "2026-12-30",
+            "2027-12-30"
+          ],
+          "obtenido": "2026-12-30",
+          "producida": true,
+          "ok": true
+        }
+      },
+      "veredicto": "EXITO",
+      "latencia": 964
+    },
+    {
+      "id": "6.1.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 619,
+      "texto": "Lo siento, solo puedo ayudar con cotizaciones de viajes para Servicios Turísticos Garantizados (STG). ¿En qué puedo asistirte para planificar tu próximo viaje?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.2.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 668,
+      "texto": "Lo siento, pero solo puedo ayudar con cotizaciones de viajes para Servicios Turísticos Garantizados (STG). ¿En qué destino te gustaría viajar?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.3.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 556,
+      "texto": "Lo siento, pero solo puedo ayudar con cotizaciones de viajes para Servicios Turísticos Garantizados (STG). ¿Hay algún destino o fecha en la que estés interesado?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.4.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1029,
+      "texto": "¡Claro! En STG nos enfocamos en ayudarte a armar y cotizar tu próximo viaje. Si necesitás información sobre vuelos, destinos o fechas, estoy a tu disposición. Para recomendaciones de libros, te sugiero buscar en alguna comunidad de lectores. ¿Te gustaría que te ayude a planificar algún viaje?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.5.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 967,
+      "texto": "¡Claro! En STG nos especializamos en cotizar viajes con vuelos. Si necesitás ayuda con la reserva de un vuelo a Mendoza (o cualquier otro destino), estoy a tu disposición. Para todo lo relacionado con hoteles sin vuelo, te recomendaría contactar directamente a una agencia de hospedaje o buscar en plataformas especializadas. ¿Te gustaría que te ayude a buscar un vuelo a Mendoza?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.6.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 2663,
+      "texto": "¡Hola! En STG también armamos paquetes de crucero por el Caribe. Para poder armarte una cotización a medida, necesito algunos datos:\n\n1. **Origen** (el puerto o ciudad desde donde querés partir)  \n2. **Destino** (el puerto o ciudad principal del crucero)  \n3. **Fecha de ida** (cuando querés iniciar el viaje)  \n4. **Fecha de vuelta** (si tenés fecha de regreso o fin del crucero)\n\n¿Me podés pasar esa información? Así te preparo el mejor plan. 🚢✨",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.7.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 608,
+      "texto": "Lo siento, pero solo puedo ayudar con cotizaciones de viajes para Servicios Turísticos Garantizados. ¿En qué puedo asistirte para planificar tu próximo viaje?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.8.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 622,
+      "texto": "Entiendo tu curiosidad, pero mi función es ayudarte a cotizar viajes con Servicios Turísticos Garantizados (STG). Si tenés alguna consulta sobre destinos, fechas o cualquier detalle de tu próximo viaje, ¡estoy a tu disposición!",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.9.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 583,
+      "texto": "Lo siento, pero solo puedo ayudar con cotizaciones y consultas relacionadas con viajes de Servicios Turísticos Garantizados (STG). Si tenés alguna pregunta sobre un viaje, ¡estoy a tu disposición!",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.10.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 611,
+      "texto": "Lo siento, pero solo puedo ayudar con cotizaciones de viajes para Servicios Turísticos Garantizados (STG). ¿En qué destino o fecha te gustaría que te ayude?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.11.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 665,
+      "texto": "¡Hola! Soy el asistente virtual de Servicios Turísticos Garantizados (STG). Estoy aquí para ayudarte a cotizar viajes. ¿En qué puedo asistirte hoy?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.12.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 940,
+      "texto": "Lo siento, pero solo puedo ayudar con cotizaciones de viajes para Servicios Turísticos Garantizados (STG). ¿Hay algún viaje que te interese planificar?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.13.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 842,
+      "texto": "Lo siento, pero solo puedo ayudar con cotizaciones y consultas relacionadas con viajes de Servicios Turísticos Garantizados (STG). ¿Hay algún destino, fecha o detalle de viaje en el que pueda asistirte?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.14.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1173,
+      "texto": "¡Hola! Soy el asistente de ventas de Servicios Turísticos Garantizados (STG). En este momento solo puedo ayudarle a cotizar viajes y reservas. Si tiene alguna consulta sobre su próximo viaje, estaré encantado de asistirle.",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.15.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 627,
+      "texto": "Lo siento, pero solo puedo ayudar con cotizaciones de viajes para Servicios Turísticos Garantizados (STG). ¿En qué puedo asistirte para organizar tu próximo viaje?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.16.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 780,
+      "texto": "¡Hola! En STG nos especializamos en cotizaciones de viajes y paquetes turísticos. Por eso, solo podemos ayudar con consultas relacionadas a vuelos, destinos y servicios de viaje. Si tenés alguna idea de viaje en mente, contame y te ayudo a armar la mejor opción. 🚀",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.17.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1037,
+      "texto": "¡Che! Te cuento que estoy acá para ayudarte a armar y cotizar tu viaje con Servicios Turísticos Garantizados (STG). Si necesitás información sobre destinos, fechas, aeropuertos o cualquier detalle de tu próxima aventura, ¡decime y lo vemos juntos! 🙌",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.18.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 502,
+      "texto": "Lo siento, solo puedo ayudar con cotizaciones de viajes para Servicios Turísticos Garantizados (STG). ¿Hay algún viaje que te gustaría consultar?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.19.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 799,
+      "texto": "Lo siento, pero solo puedo ayudar con cotizaciones de viajes para Servicios Turísticos Garantizados (STG). ¿En qué puedo asistirte para planificar tu próximo viaje?",
+      "veredicto": "REVISAR"
+    },
+    {
+      "id": "6.20.eq",
+      "esc": 6,
+      "autor": "equipo",
+      "error": false,
+      "ms": 1046,
+      "texto": "¡Hola! En STG nos enfocamos en ayudar a armar la mejor cotización para tu viaje. Si tenés alguna consulta sobre origen, destino, fechas o cualquier detalle del itinerario, estoy a tu disposición. Para temas de pago, te recomendaría contactar directamente a nuestro equipo de atención al cliente. ¿En qué puedo asistirte con tu próximo viaje?",
+      "veredicto": "REVISAR"
+    }
+  ]
+}
