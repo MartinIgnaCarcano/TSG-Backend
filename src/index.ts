@@ -61,23 +61,84 @@ app.use(
   }),
 )
 
-app.use(helmet())
+// CSP: los defaults de helmet bloquean dos cosas que usa el front cuando
+// este mismo Express lo sirve en producción: las fotos de los hoteles (vienen
+// de Booking u otros dominios, siempre https) y la cotización del dólar, que
+// el navegador pide a dolarapi.com.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        'img-src': ["'self'", 'data:', 'https:'],
+        'connect-src': ["'self'", 'https://dolarapi.com'],
+      },
+    },
+  }),
+)
 
 // CORS acotado: permite la lista configurada (front servido por un dev
 // server local) y los casos sin Origin —front vanilla abierto con
 // doble-click (file://) y n8n, que pega server-to-server—. No es un
 // wildcard abierto a cualquier sitio.
+//
+// Mismo origen: cuando el front lo sirve este Express (FRONT_DIST_DIR), el
+// navegador igual manda `Origin` en los POST/PATCH. Ese origen es el propio
+// host del back, no hace falta listarlo en CORS_ORIGINS: se acepta siempre.
 app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || config.corsOrigins.includes(origin)) {
-        callback(null, true)
-        return
-      }
-      callback(new Error(`Origen no permitido por CORS: ${origin}`))
-    },
+  cors((req: express.Request, callback) => {
+    const origin = req.headers.origin
+    const propio = `${req.protocol}://${req.headers.host}`
+    if (!origin || origin === propio || config.corsOrigins.includes(origin)) {
+      callback(null, { origin: true })
+      return
+    }
+    callback(new Error(`Origen no permitido por CORS: ${origin}`))
   }),
 )
+
+// =====================================================
+// Fase M3 — servir el build del front React (opcional, "un solo origen").
+//
+// Va ANTES de requireAuth: el HTML, el JS y el CSS del panel son públicos
+// (la pantalla de login tiene que poder cargarse sin sesión). Lo que queda
+// protegido es /api. Antes estaba después de la auth y, con
+// AUTH_ENABLED=true en producción, el navegador recibía un 401 en vez del
+// index.html.
+// Se activa solo si FRONT_DIST_DIR está seteada; si no, el back sigue
+// siendo API-only. En producción la imagen de Docker buildea `frontend/`
+// (este mismo repo) y la deja en /app/public con FRONT_DIST_DIR apuntando
+// ahí: un solo servicio, un solo origen, sin CORS. En local se puede apuntar
+// a `frontend/dist` después de `npm run build`.
+// =====================================================
+if (config.frontDistDir) {
+  const distDir = path.resolve(config.frontDistDir)
+
+  if (!fs.existsSync(path.join(distDir, 'index.html'))) {
+    logger.warn(
+      { frontDistDir: config.frontDistDir },
+      'FRONT_DIST_DIR no tiene index.html (¿corriste "npm run build" en el front?). No se sirve el front.',
+    )
+  } else {
+    // Assets del build (JS/CSS/imágenes con hash) servidos tal cual.
+    app.use(express.static(distDir))
+
+    // Fallback SPA: cualquier GET que no sea /api ni /storage devuelve
+    // index.html para que React Router resuelva la ruta client-side (ej.
+    // refrescar en /reservas no debe dar 404). No es una ruta con patrón
+    // (evita cualquier lío de sintaxis de path-to-regexp en Express 5):
+    // es un middleware que chequea el path a mano y sigue de largo si no
+    // le corresponde.
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/storage')) {
+        next()
+        return
+      }
+      res.sendFile(path.join(distDir, 'index.html'))
+    })
+
+    logger.info({ distDir }, 'Front servido desde el back (FRONT_DIST_DIR)')
+  }
+}
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -121,44 +182,6 @@ app.use('/api/health', healthRouter)
 // Ping simple (no chequea la DB) — se mantiene por compatibilidad; para
 // monitoreo real usar GET /api/health (Fase M4).
 app.get('/api', (req, res) => res.json({ message: 'API funcionando ✅' }))
-
-// =====================================================
-// Fase M3 — servir el build del front React (opcional, "un solo origen").
-// Se activa solo si FRONT_DIST_DIR está seteada en .env; si no, el back
-// sigue siendo API-only (comportamiento actual, sin cambios). Pensado para
-// `npm run build` del front (Front/STG-Sistema-de-gesti-n-de-viajes-/react)
-// apuntando FRONT_DIST_DIR a esa carpeta `dist`, y así levantar todo con
-// un solo proceso (sin CORS, sin ngrok para el front en la demo).
-// =====================================================
-if (config.frontDistDir) {
-  const distDir = path.resolve(config.frontDistDir)
-
-  if (!fs.existsSync(path.join(distDir, 'index.html'))) {
-    logger.warn(
-      { frontDistDir: config.frontDistDir },
-      'FRONT_DIST_DIR no tiene index.html (¿corriste "npm run build" en el front?). No se sirve el front.',
-    )
-  } else {
-    // Assets del build (JS/CSS/imágenes con hash) servidos tal cual.
-    app.use(express.static(distDir))
-
-    // Fallback SPA: cualquier GET que no sea /api ni /storage devuelve
-    // index.html para que React Router resuelva la ruta client-side (ej.
-    // refrescar en /reservas no debe dar 404). No es una ruta con patrón
-    // (evita cualquier lío de sintaxis de path-to-regexp en Express 5):
-    // es un middleware que chequea el path a mano y sigue de largo si no
-    // le corresponde.
-    app.use((req, res, next) => {
-      if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/storage')) {
-        next()
-        return
-      }
-      res.sendFile(path.join(distDir, 'index.html'))
-    })
-
-    logger.info({ distDir }, 'Front servido desde el back (FRONT_DIST_DIR)')
-  }
-}
 
 // Handler global de errores (Fase S1). Nunca devuelve err.message ni
 // err.stack al cliente: un error de Prisma (P2002, nombre de columna/tabla,

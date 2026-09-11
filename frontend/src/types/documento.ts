@@ -9,8 +9,10 @@ export interface DocumentoGenerado {
   reservaId: string
   tipo: TipoDocumento
   version: number
-  url: string
-  hash: string
+  // Nulo mientras el documento tiene el número de versión reservado
+  // pero el archivo todavía no se generó (ver hallazgo A-2 del back).
+  url: string | null
+  hash: string | null
   aceptado: boolean
   fechaAceptacion: string | null
   medioAceptacion: string | null

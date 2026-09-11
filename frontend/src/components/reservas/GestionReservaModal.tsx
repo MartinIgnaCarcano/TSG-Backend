@@ -494,14 +494,23 @@ function DocumentosTab({
               )}
             </div>
             <div className="flex gap-2">
-              <a
-                href={d.url.startsWith('http') ? d.url : `${import.meta.env.VITE_API_BASE?.replace(/\/api\/?$/, '') ?? ''}${d.url}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2 py-1 text-xs font-semibold text-[var(--text)] hover:border-[var(--accent)]"
-              >
-                <Download className="h-3 w-3" /> Ver
-              </a>
+              {/* El back ya filtra los documentos sin archivo, pero el
+                  render no depende de eso: si `url` viene nulo se muestra
+                  el estado en vez de romper la pantalla entera. */}
+              {d.url ? (
+                <a
+                  href={d.url.startsWith('http') ? d.url : `${import.meta.env.VITE_API_BASE?.replace(/\/api\/?$/, '') ?? ''}${d.url}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2 py-1 text-xs font-semibold text-[var(--text)] hover:border-[var(--accent)]"
+                >
+                  <Download className="h-3 w-3" /> Ver
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted)]">
+                  Generando…
+                </span>
+              )}
               {d.tipo === 'CONTRATO' && !d.aceptado && (
                 <IconButton
                   icon={Check}

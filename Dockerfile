@@ -9,6 +9,18 @@
 # Puppeteer. Es más liviano, se parchea con el sistema y evita el problema
 # clásico de que el binario descargado no encuentre sus dependencias.
 
+# ---------------------------------------------------------------- front ----
+# El panel React vive en frontend/ (mismo repo). Se buildea acá y el back lo
+# sirve como estático (ver FRONT_DIST_DIR en src/index.ts): el dominio del
+# servicio en Railway muestra el panel y la API responde en /api, mismo
+# origen. No hace falta VITE_API_BASE: por defecto el front usa /api.
+FROM node:22-bookworm-slim AS front
+WORKDIR /front
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
 # ---------------------------------------------------------------- build ----
 FROM node:22-bookworm-slim AS builder
 WORKDIR /app
@@ -50,6 +62,8 @@ COPY prisma ./prisma
 RUN npm ci --omit=dev && npx prisma generate && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
+COPY --from=front /front/dist ./public
+ENV FRONT_DIST_DIR=/app/public
 
 # Punto de montaje del volumen persistente de Railway. Sin volumen, los PDF
 # generados se pierden en cada redespliegue.
