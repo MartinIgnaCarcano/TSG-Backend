@@ -1,12 +1,19 @@
 // =====================================================
-// Modal "Buscar hoteles" (Flujo 6) — dispara el webhook de n8n
-// directo desde el front (no pasa por el back). Paridad con
-// Hoteles.js: abrirModalBuscarFlujo/dispararFlujoBuscar.
+// Modal "Buscar hoteles" (Flujo 6). Busca en Booking vía el back
+// (POST /api/hoteles/buscar-externo → webhook de n8n) y guarda los
+// resultados en el catálogo, colgados del destino elegido.
+//
+// El destino se elige de la lista, no se escribe: los hoteles tienen que
+// quedar asociados a un Destino que exista. Antes se mandaba solo el texto
+// de la ciudad y el flujo inventaba el IATA con sus 3 primeras letras
+// ("Buenos Aires" → "BUE"), así que el back descartaba todo en silencio.
 // =====================================================
 import { useEffect, useState, type ReactNode } from 'react'
 import { Search, Loader2, Rocket } from 'lucide-react'
+import { toast } from 'sonner'
 import { Modal } from '../ui/Modal'
-import { useBuscarFlujo6 } from '../../hooks/useHoteles'
+import { useBuscarFlujo6, useDestinos } from '../../hooks/useHoteles'
+import type { ApiError } from '../../lib/apiClient'
 
 const inputClass =
   'w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 text-[var(--text)] outline-none focus:border-[var(--accent)]'
@@ -22,10 +29,13 @@ export function BuscarFlujo6Modal({
 }: {
   open: boolean
   onClose: () => void
-  onDisparado: () => void
+  /** Se llama con el id del destino buscado cuando la búsqueda terminó bien. */
+  onDisparado: (destinoId: string) => void
 }) {
   const disparar = useBuscarFlujo6()
+  const { data: destinos } = useDestinos()
 
+  const [destinoId, setDestinoId] = useState('')
   const [ciudad, setCiudad] = useState('')
   const [checkin, setCheckin] = useState(isoEnDias(30))
   const [checkout, setCheckout] = useState(isoEnDias(37))
@@ -37,6 +47,7 @@ export function BuscarFlujo6Modal({
 
   useEffect(() => {
     if (!open) return
+    setDestinoId('')
     setCiudad('')
     setCheckin(isoEnDias(30))
     setCheckout(isoEnDias(37))
@@ -47,41 +58,61 @@ export function BuscarFlujo6Modal({
     setError(null)
   }, [open])
 
-  async function disparar6() {
-    if (!ciudad.trim() || !checkin || !checkout) {
-      setError('Completá ciudad, check-in y check-out.')
+  const destinoElegido = destinos?.find((d) => d.id === destinoId)
+
+  async function buscar() {
+    if (!destinoId || !checkin || !checkout) {
+      setError('Elegí un destino y completá check-in y check-out.')
+      return
+    }
+    if (checkout <= checkin) {
+      setError('El check-out tiene que ser posterior al check-in.')
       return
     }
     setError(null)
 
-    let estrellasParam: string | undefined
-    if (estrellas) {
-      const min = parseInt(estrellas)
-      estrellasParam = Array.from({ length: 5 - min + 1 }, (_, i) => min + i).join(',')
-    }
-
     try {
-      await disparar.mutateAsync({
-        destinoNombre: ciudad.trim(),
+      const res = await disparar.mutateAsync({
+        destinoId,
+        ciudad: ciudad.trim() || undefined,
         checkin,
         checkout,
         adults,
         rooms,
-        estrellas: estrellasParam,
+        estrellasMin: estrellas ? parseInt(estrellas) : undefined,
         precioMax: precioMax === '' ? undefined : precioMax,
       })
+      toast.success(`Hoteles de ${res.destino.nombre} actualizados`, {
+        description: `Booking devolvió ${res.encontrados}: ${res.creados} nuevos, ${res.actualizados} actualizados.`,
+      })
       onClose()
-      onDisparado()
-    } catch (e: any) {
-      setError(`${e.message ?? 'Error desconocido'}\n\nVerificá que el Flujo6 esté activo en n8n.`)
+      onDisparado(destinoId)
+    } catch (e) {
+      setError((e as unknown as ApiError)?.message ?? 'Error desconocido')
     }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Buscar hoteles (Flujo 6)" icon={Search} widthClass="max-w-lg">
+    <Modal open={open} onClose={onClose} title="Buscar hoteles en Booking" icon={Search} widthClass="max-w-lg">
       <div className="space-y-3">
-        <Field label="Ciudad">
-          <input value={ciudad} onChange={(e) => setCiudad(e.target.value)} className={inputClass} placeholder="Ej: Madrid" />
+        <Field label="Destino del catálogo">
+          <select value={destinoId} onChange={(e) => setDestinoId(e.target.value)} className={inputClass}>
+            <option value="">Elegí un destino…</option>
+            {(destinos ?? []).map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nombre} ({d.codigoIATA}) · {d.pais}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Buscar en Booking como (opcional)">
+          <input
+            value={ciudad}
+            onChange={(e) => setCiudad(e.target.value)}
+            className={inputClass}
+            placeholder={destinoElegido ? destinoElegido.nombre : 'Ej: Rome, en vez de Roma'}
+          />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -98,6 +129,7 @@ export function BuscarFlujo6Modal({
             <input
               type="number"
               min={1}
+              max={10}
               value={adults}
               onChange={(e) => setAdults(parseInt(e.target.value) || 1)}
               className={inputClass}
@@ -107,6 +139,7 @@ export function BuscarFlujo6Modal({
             <input
               type="number"
               min={1}
+              max={5}
               value={rooms}
               onChange={(e) => setRooms(parseInt(e.target.value) || 1)}
               className={inputClass}
@@ -125,7 +158,7 @@ export function BuscarFlujo6Modal({
               ))}
             </select>
           </Field>
-          <Field label="Precio máx/noche (opcional)">
+          <Field label="Precio máx/noche USD (opcional)">
             <input
               type="number"
               min={0}
@@ -150,13 +183,13 @@ export function BuscarFlujo6Modal({
           </button>
           <button
             type="button"
-            onClick={disparar6}
+            onClick={buscar}
             disabled={disparar.isPending}
             className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
           >
             {disparar.isPending ? (
               <span className="inline-flex items-center gap-1.5">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando en Booking…
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5">

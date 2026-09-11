@@ -5,7 +5,10 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
 import { validateBody } from '../middleware/validate'
-import { crearHotelSchema, actualizarHotelSchema } from '../schemas/hotel.schema'
+import { crearHotelSchema, actualizarHotelSchema, buscarHotelesExternoSchema } from '../schemas/hotel.schema'
+import { config } from '../config'
+import { llamarWebhookN8n } from '../lib/n8n'
+import { operacionesCarasRateLimit } from '../middleware/rateLimits'
 
 const router = Router()
 
@@ -151,6 +154,59 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     next(e)
   }
 })
+
+// POST /api/hoteles/buscar-externo — dispara el Flujo 6 (Booking vía RapidAPI)
+//
+// Reemplaza la llamada que el front hacía directo al webhook de n8n (ver
+// lib/n8n.ts para el porqué). El back resuelve el destino del catálogo y le
+// pasa a n8n el id y el IATA reales, así el bulk puede asociar los hoteles.
+// Espera la respuesta del flujo y devuelve cuántos hoteles se guardaron.
+router.post(
+  '/buscar-externo',
+  operacionesCarasRateLimit,
+  validateBody(buscarHotelesExternoSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { destinoId, ciudad, ...filtros } = req.body
+      const destino = await prisma.destino.findUnique({ where: { id: destinoId } })
+      if (!destino || destino.baja) return res.status(404).json({ error: 'Destino no encontrado' })
+
+      const resultado = await llamarWebhookN8n<{
+        ok?: boolean
+        mensaje?: string
+        encontrados?: number
+        creados?: number
+        actualizados?: number
+        descartados?: number
+      }>(
+        config.n8nWebhookHotelesUrl,
+        {
+          destinoId: destino.id,
+          destinoIATA: destino.codigoIATA,
+          destinoNombre: ciudad || destino.nombre,
+          ...filtros,
+        },
+        // Dos llamadas a RapidAPI en serie más el bulk: 45 s de techo.
+        { nombre: 'Flujo6 · buscar hoteles', timeoutMs: 45_000 },
+      )
+
+      if (!resultado?.ok) {
+        return res.status(502).json({ error: resultado?.mensaje || 'La búsqueda de hoteles no devolvió resultados.' })
+      }
+      res.json({
+        ok: true,
+        destino: { id: destino.id, nombre: destino.nombre, codigoIATA: destino.codigoIATA },
+        encontrados: resultado.encontrados ?? 0,
+        creados: resultado.creados ?? 0,
+        actualizados: resultado.actualizados ?? 0,
+        descartados: resultado.descartados ?? 0,
+        mensaje: resultado.mensaje,
+      })
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 // POST /api/hoteles/bulk — usado por el Flujo 6, recibe array y hace upsert por (nombre + destinoId)
 //

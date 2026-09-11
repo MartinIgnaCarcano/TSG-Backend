@@ -4,6 +4,10 @@
 // query params, igual que el vanilla — el filtro pendientes/hoy/
 // ejecutados/todos se hace en el cliente), ejecutar manualmente
 // (PATCH /:id/ejecutar) y eliminar (DELETE definitivo, no baja lógica).
+//
+// useEnviarRecordatorio: el envío real por WhatsApp. El back dispara el
+// Flujo3 de n8n y espera el resultado de Twilio, así el panel sabe si el
+// mensaje salió o por qué no.
 // =====================================================
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../lib/apiClient'
@@ -28,6 +32,26 @@ export function useEjecutarRecordatorio() {
     mutationFn: (id: string) =>
       apiClient.patch(`/recordatorios/${id}/ejecutar`, { resultado: 'Ejecutado manualmente desde el front' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  })
+}
+
+export interface ResultadoEnvio {
+  ok: boolean
+  detalle?: string
+  sid?: string
+}
+
+export function useEnviarRecordatorio() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.post<ResultadoEnvio>(`/recordatorios/${id}/enviar`, undefined, {
+        timeout: 40_000,
+      })
+      return data
+    },
+    // También en error: un envío fallido deja el motivo en `resultado`.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
   })
 }
 

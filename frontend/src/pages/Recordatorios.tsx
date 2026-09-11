@@ -3,8 +3,9 @@
 // Front/STG-Sistema-de-gesti-n-de-viajes-/Recordatorios.js: mini-stats
 // (pendientes/ejecutados/hoy/total), chips de filtro (pendientes/hoy/
 // ejecutados/todos), orden (pendientes por fecha próxima primero,
-// ejecutados por fecha de ejecución más reciente), ejecutar manual
-// (marca ejecutado sin enviar WhatsApp) y eliminar definitivo.
+// ejecutados por fecha de ejecución más reciente), enviar el WhatsApp
+// ahora (dispara el Flujo3 vía el back y muestra si Twilio lo aceptó),
+// marcar ejecutado sin enviar y eliminar definitivo.
 // =====================================================
 import { useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
@@ -22,14 +23,18 @@ import {
   Sparkles,
   CloudSun,
   Ticket,
-  Rocket,
+  FileSignature,
+  Send,
+  CheckCheck,
   Trash2,
   CircleAlert,
   RefreshCw,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   useEjecutarRecordatorio,
   useEliminarRecordatorio,
+  useEnviarRecordatorio,
   useRecordatorios,
 } from '../hooks/useRecordatorios'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -45,6 +50,7 @@ const TIPO_INFO: Record<TipoRecordatorio, { icon: ComponentType<{ className?: st
   POST_VIAJE: { icon: Sparkles, label: 'Post-viaje', desc: '1 día después del regreso', bg: 'bg-indigo-400/25' },
   CLIMA: { icon: CloudSun, label: 'Clima', desc: '3 días antes', bg: 'bg-[var(--bg)]' },
   VOUCHER: { icon: Ticket, label: 'Voucher', desc: 'Documentación de viaje', bg: 'bg-[var(--bg)]' },
+  CONTRATO: { icon: FileSignature, label: 'Contrato', desc: 'Contrato de servicios', bg: 'bg-[var(--bg)]' },
 }
 
 function fmtFecha(iso: string | null | undefined): string {
@@ -65,11 +71,13 @@ export default function Recordatorios() {
   const [autoRefresh, setAutoRefresh] = useState(false)
   const { data: recordatorios, isLoading, isError, error, refetch, isFetching } = useRecordatorios(autoRefresh)
   const ejecutar = useEjecutarRecordatorio()
+  const enviar = useEnviarRecordatorio()
   const eliminar = useEliminarRecordatorio()
 
   const [filtro, setFiltro] = useState<Filtro>('pendientes')
   const [ejecutando, setEjecutando] = useState<RecordatorioCompleto | null>(null)
   const [borrando, setBorrando] = useState<RecordatorioCompleto | null>(null)
+  const [enviando, setEnviando] = useState<RecordatorioCompleto | null>(null)
 
   const lista = recordatorios ?? []
   const stats = useMemo(
@@ -104,6 +112,23 @@ export default function Recordatorios() {
     if (!ejecutando) return
     await ejecutar.mutateAsync(ejecutando.id)
     setEjecutando(null)
+  }
+
+  async function confirmarEnviar() {
+    if (!enviando) return
+    const r = enviando
+    try {
+      const res = await enviar.mutateAsync(r.id)
+      toast.success(`WhatsApp enviado a ${r.reserva?.cliente?.nombre ?? 'el cliente'}`, {
+        description: res.sid ? `Twilio lo aceptó (SID ${res.sid}).` : res.detalle,
+      })
+    } catch (e) {
+      toast.error('No se pudo enviar el WhatsApp', {
+        description: (e as unknown as ApiError)?.message ?? 'Error desconocido',
+      })
+    } finally {
+      setEnviando(null)
+    }
   }
 
   async function confirmarBorrar() {
@@ -265,11 +290,27 @@ export default function Recordatorios() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center justify-end gap-1.5">
+              <div className="flex max-w-[260px] flex-wrap items-center justify-end gap-1.5">
                 {r.ejecutado ? (
                   <span className="text-xs text-[var(--text-muted)]">{r.resultado || ''}</span>
                 ) : (
-                  <IconButton icon={Rocket} label="Ejecutar" variant="accent" withLabel onClick={() => setEjecutando(r)} />
+                  <>
+                    {/* Un intento anterior que falló deja el motivo acá (lo escribe el Flujo3). */}
+                    {r.resultado && (
+                      <span className="w-full text-right text-xs text-red-500" title={r.resultado}>
+                        {r.resultado.length > 70 ? r.resultado.slice(0, 70) + '…' : r.resultado}
+                      </span>
+                    )}
+                    <IconButton
+                      icon={Send}
+                      label="Enviar WhatsApp"
+                      variant="accent"
+                      withLabel
+                      disabled={!cli?.telefono}
+                      onClick={() => setEnviando(r)}
+                    />
+                    <IconButton icon={CheckCheck} label="Marcar ejecutado sin enviar" onClick={() => setEjecutando(r)} />
+                  </>
                 )}
                 <IconButton icon={Trash2} label="Eliminar" variant="danger" onClick={() => setBorrando(r)} />
               </div>
@@ -279,12 +320,22 @@ export default function Recordatorios() {
       </div>
 
       <ConfirmDialog
+        open={!!enviando}
+        onClose={() => setEnviando(null)}
+        onConfirm={confirmarEnviar}
+        pending={enviar.isPending}
+        confirmLabel="Enviar"
+        titulo="Enviar recordatorio"
+        mensaje={`¿Enviar ahora este recordatorio por WhatsApp a ${enviando?.reserva?.cliente?.nombre ?? 'el cliente'} (${enviando?.reserva?.cliente?.telefono ?? 'sin teléfono'})?`}
+      />
+      <ConfirmDialog
         open={!!ejecutando}
         onClose={() => setEjecutando(null)}
         onConfirm={confirmarEjecutar}
         pending={ejecutar.isPending}
         confirmLabel="Marcar ejecutado"
-        mensaje="¿Marcar este recordatorio como ejecutado? No envía WhatsApp, solo cambia el estado en la DB."
+        titulo="Marcar sin enviar"
+        mensaje="¿Marcar este recordatorio como ejecutado SIN enviarlo? No manda WhatsApp: úsalo si ya avisaste al cliente por otro medio."
       />
       <ConfirmDialog
         open={!!borrando}

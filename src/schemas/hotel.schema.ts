@@ -44,3 +44,27 @@ export const crearHotelSchema = hotelBase.refine((h) => Boolean(h.destinoId || h
 })
 
 export const actualizarHotelSchema = hotelBase.partial()
+
+// POST /api/hoteles/buscar-externo — búsqueda en Booking vía Flujo6.
+// El destino se elige del catálogo (destinoId), porque los hoteles que
+// vuelven se guardan colgados de ese destino: antes el flujo inventaba el
+// IATA con las 3 primeras letras de la ciudad ("Buenos Aires" → "BUE") y
+// el bulk los descartaba todos en silencio porque ese destino no existía.
+const fechaISO = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha con formato AAAA-MM-DD')
+
+export const buscarHotelesExternoSchema = z
+  .object({
+    destinoId: z.string().trim().min(1, 'Elegí un destino'),
+    // Texto que se le pasa a Booking. Si no viene, se usa el nombre del destino.
+    ciudad: z.string().trim().max(100).optional(),
+    checkin: fechaISO,
+    checkout: fechaISO,
+    adults: z.coerce.number().int().min(1).max(10).default(2),
+    rooms: z.coerce.number().int().min(1).max(5).default(1),
+    estrellasMin: z.coerce.number().int().min(1).max(5).optional(),
+    precioMax: z.coerce.number().positive().optional(),
+  })
+  .refine((b) => b.checkout > b.checkin, {
+    message: 'El check-out tiene que ser posterior al check-in',
+    path: ['checkout'],
+  })

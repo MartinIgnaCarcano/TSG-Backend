@@ -18,3 +18,11 @@ export const crearRecordatorioSchema = z.object({
 export const ejecutarRecordatorioSchema = z.object({
   resultado: z.string().trim().optional(),
 })
+
+// Lo llama n8n DESPUÉS de intentar el envío (el recordatorio ya fue tomado
+// con PATCH /:id/ejecutar antes de mandar). ok=false lo devuelve a
+// pendiente para que la próxima corrida lo reintente.
+export const resultadoEnvioSchema = z.object({
+  ok: z.boolean(),
+  detalle: z.string().trim().max(500).optional(),
+})

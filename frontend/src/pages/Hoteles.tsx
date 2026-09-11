@@ -2,10 +2,10 @@
 // Hoteles (paso 6 del plan) — paridad funcional con
 // Front/STG-Sistema-de-gesti-n-de-viajes-/Hoteles.js: catálogo en grid,
 // filtros (nombre/descripción, destino, estrellas), alta/edición/baja
-// lógica, y disparo del Flujo 6 de n8n (búsqueda externa) con polling
-// 3x/8s de refresco posterior.
+// lógica, y búsqueda externa en Booking (Flujo 6 de n8n, vía el back).
+// Al terminar la búsqueda se filtra el catálogo por el destino buscado.
 // =====================================================
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Hotel as HotelIcon,
   Search,
@@ -42,7 +42,7 @@ const FUENTE_BADGE: Record<string, string> = {
 }
 
 export default function Hoteles() {
-  const { data: hoteles, isLoading, isError, error, refetch } = useHotelesCompletos()
+  const { data: hoteles, isLoading, isError, error } = useHotelesCompletos()
   const { data: destinos } = useDestinos()
   const crear = useCrearHotel()
   const actualizar = useActualizarHotel()
@@ -57,8 +57,6 @@ export default function Hoteles() {
   const [borrando, setBorrando] = useState<HotelCompleto | null>(null)
   const [buscarAbierto, setBuscarAbierto] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const filtrados = useMemo(() => {
     let data = [...(hoteles ?? [])]
@@ -109,16 +107,12 @@ export default function Hoteles() {
     setBorrando(null)
   }
 
-  // Tras disparar el Flujo 6, intenta refrescar 3 veces con 8s de
-  // intervalo (igual que el vanilla), por si n8n ya insertó hoteles.
-  function onDisparado() {
-    if (pollRef.current) clearInterval(pollRef.current)
-    let intentos = 0
-    pollRef.current = setInterval(() => {
-      intentos++
-      refetch()
-      if (intentos >= 3 && pollRef.current) clearInterval(pollRef.current)
-    }, 8_000)
+  // La búsqueda ya volvió con los hoteles guardados (el hook invalida el
+  // catálogo): se muestra el destino buscado para que se vean.
+  function onDisparado(destinoBuscado: string) {
+    setBusqueda('')
+    setEstrellas('')
+    setDestinoId(destinoBuscado)
   }
 
   return (

@@ -48,6 +48,13 @@ function parseList(name: string, fallback: string[]): string[] {
 // (tampoco manda Origin) — esos casos siempre se permiten en index.ts.
 // Esta lista cubre cuando el front se sirve desde un servidor local
 // (Live Server, Vite, etc.). Configurable por env sin tocar código.
+// Arma la URL de otro webhook de n8n a partir de la del de documentos
+// (misma instancia, mismo prefijo /webhook/), cambiando el último segmento.
+function derivarWebhook(path: string): string {
+  const base = process.env.N8N_WEBHOOK_DOCUMENTO_URL ?? 'http://localhost:5678/webhook/documento-emitido'
+  return base.replace(/\/[^/]*\/?$/, `/${path}`)
+}
+
 const DEFAULT_CORS_ORIGINS = [
   'http://localhost:5500',
   'http://127.0.0.1:5500',
@@ -114,6 +121,14 @@ export const config = {
   // si n8n no está levantado, no debe romper la respuesta al front.
   n8nWebhookDocumentoUrl:
     process.env.N8N_WEBHOOK_DOCUMENTO_URL ?? 'http://localhost:5678/webhook/documento-emitido',
+
+  // Webhooks que el back llama en forma síncrona (ver lib/n8n.ts): el envío
+  // manual de un recordatorio (Flujo3) y la búsqueda de hoteles (Flujo6).
+  // Si no se configuran, se derivan del de documentos cambiando el último
+  // segmento: en Railway alcanza con tener N8N_WEBHOOK_DOCUMENTO_URL.
+  n8nWebhookRecordatorioUrl:
+    process.env.N8N_WEBHOOK_RECORDATORIO_URL ?? derivarWebhook('recordatorio-enviar'),
+  n8nWebhookHotelesUrl: process.env.N8N_WEBHOOK_HOTELES_URL ?? derivarWebhook('buscar-hoteles'),
 
   // Fase M3 — sirve el build del front React (carpeta `dist` generada por
   // `npm run build`) directamente desde este Express, con fallback SPA a

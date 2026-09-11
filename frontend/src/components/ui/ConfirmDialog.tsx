@@ -8,6 +8,7 @@ export function ConfirmDialog({
   onConfirm,
   mensaje,
   confirmLabel = 'Eliminar',
+  titulo = 'Confirmar eliminación',
   pending,
 }: {
   open: boolean
@@ -15,10 +16,11 @@ export function ConfirmDialog({
   onConfirm: () => void
   mensaje: string
   confirmLabel?: string
+  titulo?: string
   pending?: boolean
 }) {
   return (
-    <Modal open={open} onClose={onClose} title="Confirmar eliminación" icon={TriangleAlert}>
+    <Modal open={open} onClose={onClose} title={titulo} icon={TriangleAlert}>
       <p className="text-sm text-[var(--text-muted)]">{mensaje}</p>
       <div className="mt-5 flex justify-end gap-2">
         <button

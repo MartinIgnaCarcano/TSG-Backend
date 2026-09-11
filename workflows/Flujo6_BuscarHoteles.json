@@ -8,27 +8,109 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "6aaa0001-0000-0000-0000-000000000001",
+      "id": "f07fa977-38b0-4556-a1a9-a9481df051f3",
       "name": "Webhook buscar-hoteles",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -900,
-        400
+        0,
+        200
       ],
-      "webhookId": "buscar-hoteles"
+      "webhookId": "c2fdfef2-64da-4097-8427-af39fb7b5c18"
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\n// destinoNombre es la ciudad libre (ej: \"París\", \"Buenos Aires\")\n// destinoIATA es opcional — si viene, se usa para guardar en el back\nconst destinoNombre = (body.destinoNombre || '').replace(/\\s*\\(.*?\\)\\s*/g, '').trim();\nconst destinoIATA = (body.destinoIATA || destinoNombre.toUpperCase().slice(0, 3)).toUpperCase();\nconst destinoId = body.destinoId || null;\nconst checkin = body.checkin || new Date(Date.now() + 30*86400000).toISOString().slice(0,10);\nconst checkout = body.checkout || new Date(Date.now() + 37*86400000).toISOString().slice(0,10);\nconst adults = body.adults || 2;\nconst rooms = body.rooms || 1;\nconst estrellas = body.estrellas || null;\nconst precioMax = body.precioMax || null;\n\nif (!destinoNombre) {\n  return [{ json: { error: 'Falta destinoNombre' } }];\n}\n\nreturn [{ json: { destinoIATA, destinoNombre, destinoId, checkin, checkout, adults, rooms, estrellas, precioMax } }];"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "3d17ed93-4eac-45c1-a419-a03191be3b73",
+              "leftValue": "={{ $json.headers['x-api-key'] || '' }}",
+              "rightValue": "={{ $env.N8N_API_KEY || '' }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "id": "6aaa0002-0000-0000-0000-000000000002",
+      "id": "804fa9ed-050f-48aa-866d-389aa320b10c",
+      "name": "¿API key válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": false,\n  \"detalle\": \"No autorizado: la x-api-key no coincide con N8N_API_KEY de n8n\",\n  \"mensaje\": \"No autorizado: la x-api-key no coincide con N8N_API_KEY de n8n\"\n}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "ed341b57-b903-4b41-b283-48705918c6f3",
+      "name": "Responder 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Valida lo que manda el back (POST /api/hoteles/buscar-externo). El back\n// ya resolvió el destino del catálogo: acá llegan su id y su IATA reales.\n// Antes el IATA se inventaba con las 3 primeras letras de la ciudad y el\n// bulk descartaba todos los hoteles porque ese destino no existía.\nconst b = $input.first().json.body || {};\nconst faltan = ['destinoId', 'destinoNombre', 'checkin', 'checkout'].filter((k) => !b[k]);\nif (faltan.length) {\n  return [{ json: { ok: false, mensaje: `Faltan datos para buscar: ${faltan.join(', ')}` } }];\n}\nif (!$env.RAPIDAPI_KEY) {\n  return [{ json: { ok: false, mensaje: 'Falta la variable RAPIDAPI_KEY en el servicio de n8n.' } }];\n}\nreturn [{ json: {\n  ok: true,\n  destinoId: b.destinoId,\n  destinoIATA: b.destinoIATA || null,\n  // Booking busca mejor sin aclaraciones entre paréntesis (\"Madrid (MAD)\").\n  destinoNombre: String(b.destinoNombre).replace(/\\s*\\(.*?\\)\\s*/g, ' ').trim(),\n  checkin: b.checkin,\n  checkout: b.checkout,\n  adults: Number(b.adults) || 2,\n  rooms: Number(b.rooms) || 1,\n  estrellasMin: b.estrellasMin ? Number(b.estrellasMin) : null,\n  precioMax: b.precioMax ? Number(b.precioMax) : null,\n} }];\n"
+      },
+      "id": "3fd0f1e8-c56b-4317-90f1-3e27e40a505a",
       "name": "Parsear input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -660,
-        400
+        440,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "d05dbc1f-b8f2-4222-b10d-0214e1df12fb",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d5d82eba-915a-46ba-a43d-a4159554424d",
+      "name": "¿Input válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        180
       ]
     },
     {
@@ -48,7 +130,7 @@
           "parameters": [
             {
               "name": "x-rapidapi-key",
-              "value": "18d9f2c737msh5e2a30eb580bcc7p193f75jsnce101194bf06"
+              "value": "={{ $env.RAPIDAPI_KEY }}"
             },
             {
               "name": "x-rapidapi-host",
@@ -60,27 +142,60 @@
           "timeout": 20000
         }
       },
-      "id": "6aaa0003-0000-0000-0000-000000000003",
+      "id": "dbdb1275-bebc-4903-8c83-5439c3cea50d",
       "name": "Buscar destination_id",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -420,
-        400
+        880,
+        160
       ],
-      "continueOnFail": true
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Extraer dest_id del primer resultado (booking-com15) o usar fallback\nconst raw = $input.first().json;\nconst ctx = $('Parsear input').first().json;\n\nlet destId = null;\ntry {\n  const list = raw?.data || raw?.results || [];\n  if (Array.isArray(list) && list.length > 0) {\n    destId = list[0].dest_id || list[0].destId || list[0].id;\n  }\n} catch(e) {}\n\nreturn [{ json: { ...ctx, destId: destId || ctx.destinoIATA } }];"
+        "jsCode": "// searchDestination devuelve ciudades, barrios, aeropuertos y hoteles\n// mezclados. Se prefiere la ciudad, y se usa el search_type que informa\n// Booking para ese resultado (antes iba siempre \"CITY\", y si el primer\n// resultado era un aeropuerto la búsqueda de hoteles volvía vacía).\nconst raw = $input.first().json;\nconst ctx = $('Parsear input').first().json;\nif (raw && raw.status === false) {\n  return [{ json: { ok: false, mensaje: `Booking rechazó la búsqueda del destino: ${raw.message || 'sin detalle'}` } }];\n}\nconst lista = Array.isArray(raw?.data) ? raw.data : [];\nconst tipo = (d) => String(d.search_type || d.dest_type || '').toLowerCase();\nconst elegido = lista.find((d) => tipo(d) === 'city') || lista.find((d) => ['region', 'district'].includes(tipo(d))) || lista[0];\nif (!elegido || !elegido.dest_id) {\n  return [{ json: { ok: false, mensaje: `Booking no encontró \"${ctx.destinoNombre}\". Probá con el nombre de la ciudad en otro idioma (ej. \"Rome\").` } }];\n}\nreturn [{ json: { ...ctx, destId: String(elegido.dest_id), searchType: tipo(elegido).toUpperCase() || 'CITY', destinoBooking: elegido.label || elegido.name || ctx.destinoNombre } }];\n"
       },
-      "id": "6aaa0004-0000-0000-0000-000000000004",
-      "name": "Extraer destId",
+      "id": "2cf4b9a9-d68e-4e69-8395-468cf9fd6609",
+      "name": "Elegir destino",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -180,
-        400
+        1100,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "e5f2c255-314d-4101-a058-ddc04dcb9c51",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c46b6fe0-2023-403e-af51-58f14c270be5",
+      "name": "¿Hay destino?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        140
       ]
     },
     {
@@ -95,7 +210,7 @@
             },
             {
               "name": "search_type",
-              "value": "CITY"
+              "value": "={{ $json.searchType }}"
             },
             {
               "name": "arrival_date",
@@ -110,8 +225,16 @@
               "value": "={{ $json.adults }}"
             },
             {
+              "name": "room_qty",
+              "value": "={{ $json.rooms }}"
+            },
+            {
               "name": "page_number",
               "value": "1"
+            },
+            {
+              "name": "units",
+              "value": "metric"
             },
             {
               "name": "languagecode",
@@ -119,22 +242,6 @@
             },
             {
               "name": "currency_code",
-              "value": "USD"
-            },
-            {
-              "name": "room_number",
-              "value": "={{ $json.rooms }}"
-            },
-            {
-              "name": "categories_filter",
-              "value": "={{ $json.estrellas ? $json.estrellas.toString().split(',').map(s => 'class::' + s.trim()).join(',') : '' }}"
-            },
-            {
-              "name": "price_filter_max",
-              "value": "={{ $json.precioMax || '' }}"
-            },
-            {
-              "name": "price_filter_currencycode",
               "value": "USD"
             }
           ]
@@ -144,7 +251,7 @@
           "parameters": [
             {
               "name": "x-rapidapi-key",
-              "value": "18d9f2c737msh5e2a30eb580bcc7p193f75jsnce101194bf06"
+              "value": "={{ $env.RAPIDAPI_KEY }}"
             },
             {
               "name": "x-rapidapi-host",
@@ -156,71 +263,131 @@
           "timeout": 30000
         }
       },
-      "id": "6aaa0005-0000-0000-0000-000000000005",
+      "id": "3b3acc41-f4b7-4c0f-982b-55c198122aa3",
       "name": "Buscar Hoteles",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        60,
-        400
+        1540,
+        120
       ],
-      "continueOnFail": true
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Normalizar respuesta de Booking → formato bulk del back\nconst raw = $input.first().json;\nconst ctx = $('Extraer destId').first().json;\n\nconst items = [];\nconst hotelsRaw = raw?.data?.hotels || raw?.hotels || raw?.data || [];\n\nfor (const h of (Array.isArray(hotelsRaw) ? hotelsRaw.slice(0, 10) : [])) {\n  const prop = h.property || h;\n  const nombre = prop.name || prop.hotel_name || h.name;\n  if (!nombre) continue;\n\n  const precio = prop.priceBreakdown?.grossPrice?.value\n    || prop.price\n    || prop.gross_amount\n    || h.min_total_price\n    || 0;\n  const estrellas = Math.round(prop.accuratePropertyClass || prop.propertyClass || prop.class || h.class || 3);\n  const rating = prop.reviewScore || prop.review_score || h.review_score || null;\n  const fotos = prop.photoUrls || prop.main_photo_url || [];\n  const urlImg = Array.isArray(fotos) ? fotos[0] : fotos;\n  const reservaUrl = prop.url || h.url || null;\n  const direccion = prop.wishlistName || prop.address || h.address || '';\n\n  // Calcular precio por noche (Booking devuelve el total)\n  const noches = Math.max(1, Math.round((new Date(ctx.checkout) - new Date(ctx.checkin)) / 86400000));\n  const precioPorNoche = noches > 0 ? Math.round(precio / noches) : precio;\n\n  items.push({\n    nombre,\n    destinoIATA: ctx.destinoIATA,\n    estrellas: estrellas || 3,\n    precioNoche: precioPorNoche || 0,\n    rating: rating ? Number((rating / 1).toFixed(1)) : null,\n    urlImagen: urlImg || null,\n    urlReserva: reservaUrl,\n    direccion,\n    fuente: 'BOOKING',\n  });\n}\n\nif (items.length === 0) {\n  return [{ json: { items: [], hint: 'Sin resultados o RapidAPI no respondió. Verificá la key.' } }];\n}\n\nreturn [{ json: { items } }];"
+        "jsCode": "// Booking devuelve el precio TOTAL de la estadía: se pasa a precio por\n// noche. Los filtros de estrellas y precio se aplican acá, sobre el dato ya\n// normalizado, en vez de mandarlos a la API (antes iban vacíos cuando no se\n// usaban y la API podía devolver cero resultados).\nconst raw = $input.first().json;\nconst ctx = $('Elegir destino').first().json;\nif (raw && raw.status === false) {\n  return [{ json: { ok: false, mensaje: `Booking rechazó la búsqueda de hoteles: ${raw.message || 'sin detalle'}` } }];\n}\nconst hoteles = Array.isArray(raw?.data?.hotels) ? raw.data.hotels : [];\nconst noches = Math.max(1, Math.round((new Date(ctx.checkout) - new Date(ctx.checkin)) / 86400000));\n\nconst items = [];\nfor (const h of hoteles) {\n  const p = h.property || {};\n  const nombre = (p.name || h.hotel_name || '').trim();\n  if (!nombre) continue;\n  const total = Number(p.priceBreakdown?.grossPrice?.value ?? h.min_total_price ?? 0);\n  const precioNoche = Math.round((total / noches) * 100) / 100;\n  const clase = Math.round(Number(p.accuratePropertyClass || p.propertyClass || 0));\n  const foto = Array.isArray(p.photoUrls) ? p.photoUrls[0] : null;\n  const rating = p.reviewScore != null ? Math.round(Number(p.reviewScore) * 10) / 10 : null;\n\n  if (ctx.estrellasMin && clase && clase < ctx.estrellasMin) continue;\n  if (ctx.precioMax && precioNoche > ctx.precioMax) continue;\n\n  items.push({\n    nombre,\n    destinoId: ctx.destinoId,\n    destinoIATA: ctx.destinoIATA,\n    // Sin categoría informada, la columna no admite nulo: queda en 3 como\n    // en el alta manual.\n    estrellas: clase >= 1 && clase <= 5 ? clase : 3,\n    precioNoche,\n    moneda: p.priceBreakdown?.grossPrice?.currency || 'USD',\n    rating,\n    // La miniatura que manda Booking es de 60 px: se pide una de 500.\n    urlImagen: foto ? String(foto).replace(/\\/square\\d+\\//, '/max500/') : null,\n    urlReserva: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(nombre + ' ' + ctx.destinoNombre)}&checkin=${ctx.checkin}&checkout=${ctx.checkout}&group_adults=${ctx.adults}&no_rooms=${ctx.rooms}`,\n    direccion: p.wishlistName || null,\n    fuente: 'BOOKING',\n  });\n  if (items.length >= 15) break;\n}\n\nif (!items.length) {\n  const filtros = ctx.estrellasMin || ctx.precioMax ? ' con esos filtros' : '';\n  return [{ json: { ok: false, mensaje: `Booking no devolvió hoteles disponibles en ${ctx.destinoBooking} para esas fechas${filtros}.`, encontrados: hoteles.length } }];\n}\nreturn [{ json: { ok: true, items, encontrados: hoteles.length } }];\n"
       },
-      "id": "6aaa0006-0000-0000-0000-000000000006",
+      "id": "4257e769-3526-4869-a181-e7a156b37e6d",
       "name": "Normalizar hoteles",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        300,
-        400
+        1760,
+        100
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "http://localhost:3001/api/hoteles/bulk",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ items: $json.items }) }}",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "090706cb-7c0b-425d-92e9-0df23c2aeaa6",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0cfb0f5b-c16c-436f-ac34-e9ff917d74da",
+      "name": "¿Hay hoteles?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:3001/api/hoteles/bulk",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-api-key",
-              "value": "={{ $vars.N8N_API_KEY }}"
+              "value": "={{ $env.N8N_API_KEY }}"
             }
           ]
         },
         "options": {
           "timeout": 15000
-        }
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ items: $json.items }) }}"
       },
-      "id": "6aaa0007-0000-0000-0000-000000000007",
+      "id": "2899fe91-7775-4ae1-bc6e-0c18f6f3b701",
       "name": "POST bulk al back",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        540,
-        400
+        2200,
+        80
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const bulk = $json;\nconst norm = $('Normalizar hoteles').first().json;\nreturn [{ json: {\n  ok: true,\n  encontrados: norm.encontrados,\n  creados: bulk.creados ?? 0,\n  actualizados: bulk.actualizados ?? 0,\n  descartados: bulk.descartados ?? 0,\n} }];\n"
+      },
+      "id": "21e3e6f9-857c-4086-9a3f-42acf994439d",
+      "name": "Armar respuesta OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        60
       ]
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\n  \"ok\": true,\n  \"creados\": {{ $json.creados ?? 0 }},\n  \"actualizados\": {{ $json.actualizados ?? 0 }},\n  \"total\": {{ $json.total ?? 0 }}\n}",
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Salida de error de un nodo HTTP (Booking o el back). Se arma un mensaje\n// legible para el panel en vez de dejar que la ejecución muera sin\n// responder al webhook (el front veía un 500 sin explicación).\nconst e = $json.error;\nconst msg = typeof e === 'string' ? e : (e?.message || $json.message || JSON.stringify($json).slice(0, 200));\nlet pista = '';\nif (/403|not subscribed/i.test(msg)) pista = ' (¿la RAPIDAPI_KEY está suscripta a booking-com15?)';\nelse if (/429|quota|rate/i.test(msg)) pista = ' (se agotó la cuota de RapidAPI)';\nelse if (/401/.test(msg)) pista = ' (revisá N8N_API_KEY en n8n y en el back)';\nreturn { json: { ok: false, mensaje: `${msg}${pista}`.slice(0, 400) } };\n"
+      },
+      "id": "337ef124-d8c0-43a4-8caa-61b8f1bd53d1",
+      "name": "Formatear error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
         "options": {}
       },
-      "id": "6aaa0008-0000-0000-0000-000000000008",
-      "name": "Responder al front",
+      "id": "8ca1c4cd-5a1a-4cf8-81b6-d26d9a7e1b85",
+      "name": "Responder al back",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        780,
-        400
+        2640,
+        240
       ]
     }
   ],
@@ -229,7 +396,25 @@
       "main": [
         [
           {
+            "node": "¿API key válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿API key válida?": {
+      "main": [
+        [
+          {
             "node": "Parsear input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 401",
             "type": "main",
             "index": 0
           }
@@ -240,7 +425,25 @@
       "main": [
         [
           {
+            "node": "¿Input válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Input válido?": {
+      "main": [
+        [
+          {
             "node": "Buscar destination_id",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder al back",
             "type": "main",
             "index": 0
           }
@@ -251,18 +454,43 @@
       "main": [
         [
           {
-            "node": "Extraer destId",
+            "node": "Elegir destino",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Formatear error",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Extraer destId": {
+    "Elegir destino": {
+      "main": [
+        [
+          {
+            "node": "¿Hay destino?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay destino?": {
       "main": [
         [
           {
             "node": "Buscar Hoteles",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder al back",
             "type": "main",
             "index": 0
           }
@@ -277,6 +505,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Formatear error",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -284,7 +519,25 @@
       "main": [
         [
           {
+            "node": "¿Hay hoteles?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay hoteles?": {
+      "main": [
+        [
+          {
             "node": "POST bulk al back",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder al back",
             "type": "main",
             "index": 0
           }
@@ -295,7 +548,36 @@
       "main": [
         [
           {
-            "node": "Responder al front",
+            "node": "Armar respuesta OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Formatear error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar respuesta OK": {
+      "main": [
+        [
+          {
+            "node": "Responder al back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear error": {
+      "main": [
+        [
+          {
+            "node": "Responder al back",
             "type": "main",
             "index": 0
           }
@@ -303,16 +585,13 @@
       ]
     }
   },
+  "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "tags": [
-    {
-      "name": "stg"
-    },
-    {
-      "name": "hoteles"
-    }
-  ],
-  "active": false
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
 }

@@ -13,6 +13,7 @@ import { prisma } from './lib/prisma'
 import { requireAuth } from './middleware/auth'
 import { apiRateLimit, operacionesCarasRateLimit } from './middleware/rateLimits'
 import { TransicionInvalidaError } from './services/reservas.service'
+import { N8nError } from './lib/n8n'
 import clientesRouter from './routes/clientes'
 import viajesRouter from './routes/viajes'
 import tramosRouter from './routes/tramos'
@@ -178,6 +179,13 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   // mensaje es seguro, no expone internals.
   if (err instanceof TransicionInvalidaError) {
     res.status(409).json({ error: err.message })
+    return
+  }
+
+  // Falla de un webhook de n8n llamado en forma síncrona (lib/n8n.ts): el
+  // mensaje lo arma el back, no viene de afuera, así que es seguro.
+  if (err instanceof N8nError) {
+    res.status(err.status).json({ error: err.message })
     return
   }
 

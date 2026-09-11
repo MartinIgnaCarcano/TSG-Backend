@@ -1,5 +1,5 @@
 {
-  "name": "STG Flujo 3 — Recordatorios proactivos (cron 9AM)",
+  "name": "STG Flujo 3 — Recordatorios (cron 9 AM + envío manual)",
   "nodes": [
     {
       "parameters": {
@@ -12,13 +12,13 @@
           ]
         }
       },
-      "id": "3aaa0001-0000-0000-0000-000000000001",
+      "id": "4afccc8e-9853-49c3-a1da-b0433bb15fba",
       "name": "Cron 9:00 AM",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        -800,
-        400
+        0,
+        0
       ]
     },
     {
@@ -37,73 +37,84 @@
           "timeout": 15000
         }
       },
-      "id": "3aaa0002-0000-0000-0000-000000000002",
+      "id": "f8ec2445-f5ae-4a03-8fb6-4cc7630d2be8",
       "name": "GET recordatorios de hoy",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -560,
-        400
-      ]
-    },
-    {
-      "parameters": {},
-      "id": "3aaa0003-0000-0000-0000-000000000003",
-      "name": "Uno por uno",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        -320,
-        400
-      ],
-      "notes": "GET /api/recordatorios devuelve un array plano (sin envolver en {data:[...]}); el HTTP Request de n8n ya separa cada elemento del array en un item, así que acá no hace falta un SplitOut — solo se mantiene el nombre del nodo porque el Code de abajo lo referencia con $('Uno por uno')."
-    },
-    {
-      "parameters": {
-        "jsCode": "// Este flujo ahora solo maneja recordatorios por TIEMPO (PAGO_SALDO,\n// CHECK_IN, POST_VIAJE). VOUCHER y CONTRATO se sacaron de acá: se emiten y\n// avisan al instante desde el botón del front (ver Flujo7_DocumentoEmitido,\n// disparado por webhook desde el back apenas se genera el documento) en vez\n// de esperar a este cron de las 9AM.\nconst r = $json;\nconst rsv = r.reserva || {};\nconst cli = rsv.cliente || {};\nconst v = rsv.cotizacion?.viaje || {};\nconst ruta = (v.origen?.codigoIATA && v.destino?.codigoIATA)\n  ? `${v.origen.codigoIATA} → ${v.destino.codigoIATA}`\n  : 'tu viaje';\nconst fechaViaje = rsv.fechaViaje ? new Date(rsv.fechaViaje).toLocaleDateString('es-AR') : '';\nconst saldoPendiente = (Number(rsv.montoFinal) - Number(rsv.saldoPagado)).toFixed(2);\nconst tel = (cli.telefono || '').replace(/^whatsapp:/, '');\n\nlet mensaje = '';\n\nswitch (r.tipo) {\n  case 'PAGO_SALDO':\n    mensaje = `🧾 *Recordatorio de pago — STG*\\n\\nHola ${cli.nombre}, te recordamos que tenés un saldo pendiente de *USD ${saldoPendiente}* para tu reserva ${rsv.numeroReserva} (${ruta} - ${fechaViaje}).\\n\\nPara evitar la cancelación automática, regularizá el pago hasta 7 días antes del viaje. Cualquier consulta, escribinos por acá. ✈️`;\n    break;\n  case 'CHECK_IN':\n    mensaje = `✈️ *¡Mañana viajás!*\\n\\nHola ${cli.nombre}, recordá hacer el check-in online de tu vuelo de mañana (${ruta} - ${fechaViaje}). La mayoría de las aerolíneas lo habilitan 24-48 horas antes.\\n\\n¡Buen viaje! 🌍`;\n    break;\n  case 'POST_VIAJE':\n    mensaje = `🎉 *¿Qué tal el viaje?*\\n\\nHola ${cli.nombre}, esperamos que la hayas pasado increíble en ${v.destino?.nombre || 'tu destino'}. Nos encantaría saber cómo fue tu experiencia para seguir mejorando.\\n\\n¿Nos dejás un comentario o una calificación? 🙏`;\n    break;\n  default:\n    mensaje = `Hola ${cli.nombre}, te escribimos desde STG sobre tu reserva ${rsv.numeroReserva}.`;\n}\n\nif (!tel) return []; // sin teléfono no podemos avisar\n\nreturn [{ json: {\n  recordatorioId: r.id, tipo: r.tipo, telefono: tel, mensaje, reservaNumero: rsv.numeroReserva\n} }];"
-      },
-      "id": "3aaa0004-0000-0000-0000-000000000004",
-      "name": "Armar mensaje según tipo",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -80,
-        400
+        220,
+        0
       ]
     },
     {
       "parameters": {
-        "resource": "sms",
-        "operation": "send",
-        "from": "+14155238886",
-        "to": "={{ $json.telefono }}",
-        "toWhatsapp": true,
-        "message": "={{ $json.mensaje }}",
+        "httpMethod": "POST",
+        "path": "recordatorio-enviar",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "3aaa0005-0000-0000-0000-000000000005",
-      "name": "Twilio - Enviar al cliente",
-      "type": "n8n-nodes-base.twilio",
-      "typeVersion": 1,
+      "id": "549fc0dd-c29f-4c89-9dba-14b81e8e6166",
+      "name": "Webhook envío manual",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
       "position": [
-        200,
-        400
+        0,
+        300
       ],
-      "credentials": {
-        "twilioApi": {
-          "id": "REEMPLAZAR_CON_TU_CREDENCIAL_TWILIO",
-          "name": "Twilio"
-        }
-      },
-      "continueOnFail": true
+      "webhookId": "988bb736-f4f6-4682-b716-0f2f81444a65"
     },
     {
       "parameters": {
-        "method": "PATCH",
-        "url": "={{ $env.API_BASE }}/api/recordatorios/{{ $('Armar mensaje según tipo').item.json.recordatorioId }}/ejecutar",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"resultado\": \"{{ $json.sid ? 'Enviado: ' + $json.sid : 'Error' }}\"\n}",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "49107bad-8c36-4297-92db-7cee90e2f0ef",
+              "leftValue": "={{ $json.headers['x-api-key'] || '' }}",
+              "rightValue": "={{ $env.N8N_API_KEY || '' }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a91b7aee-0094-48bd-9820-78e2698f8fc7",
+      "name": "¿API key válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": false,\n  \"detalle\": \"No autorizado: la x-api-key no coincide con N8N_API_KEY de n8n\",\n  \"mensaje\": \"No autorizado: la x-api-key no coincide con N8N_API_KEY de n8n\"\n}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "1b7c1674-c513-4c44-a057-d4c090279e40",
+      "name": "Responder 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.API_BASE }}/api/recordatorios/{{ $json.body.recordatorioId }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -114,16 +125,330 @@
           ]
         },
         "options": {
-          "timeout": 10000
+          "timeout": 15000
         }
       },
-      "id": "3aaa0006-0000-0000-0000-000000000006",
-      "name": "Marcar como ejecutado",
+      "id": "0212cb5b-cd13-4ecf-af47-656aae04139b",
+      "name": "GET recordatorio",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        480,
-        400
+        440,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Arma el WhatsApp de UN recordatorio (modo \"Run Once for Each Item\").\n// Llega desde dos lados con la misma forma (GET /api/recordatorios con la\n// reserva, el cliente y el viaje incluidos): el cron de las 9 y el webhook\n// del botón \"Enviar WhatsApp\" del panel.\n//\n// VOUCHER y CONTRATO no se programan por fecha: salen al instante por el\n// Flujo7 cuando se emite el documento. Si alguno llega acá (carga manual),\n// cae en el mensaje genérico.\nconst r = $json;\nconst rsv = r.reserva || {};\nconst cli = rsv.cliente || {};\nconst v = rsv.cotizacion?.viaje || {};\nconst ruta = (v.origen?.codigoIATA && v.destino?.codigoIATA)\n  ? `${v.origen.codigoIATA} → ${v.destino.codigoIATA}`\n  : 'tu viaje';\n// Las fechas se guardan a las 00:00 UTC: se formatean en UTC para que no\n// aparezca el día anterior.\nconst fechaViaje = rsv.fechaViaje\n  ? new Date(rsv.fechaViaje).toLocaleDateString('es-AR', { timeZone: 'UTC' })\n  : '';\nconst saldoPendiente = Math.max(0, Number(rsv.montoFinal || 0) - Number(rsv.saldoPagado || 0)).toFixed(2);\nconst nombre = cli.nombre || '';\n\n// WhatsApp exige el número internacional. En Argentina los celulares van\n// con el 9 después del 54 (+549...), y en la base hay teléfonos cargados de\n// varias formas: \"whatsapp:+549...\", \"+54 261 ...\", \"2614179824\".\nfunction normalizarTelefono(t) {\n  const crudo = String(t || '').replace(/^whatsapp:/i, '').trim();\n  if (!crudo) return '';\n  let d = crudo.replace(/[^\\d]/g, '');\n  if (crudo.startsWith('+') && !d.startsWith('54')) return '+' + d; // otro país: se respeta\n  if (d.startsWith('00')) d = d.slice(2);\n  if (d.startsWith('0')) d = d.slice(1);                 // 0261... → 261...\n  if (d.length === 10) return '+549' + d;                // 2614179824\n  if (d.startsWith('549')) return '+' + d;\n  if (d.startsWith('54')) return '+549' + d.slice(2);    // +54 261... → +549 261...\n  return '+' + d;\n}\n\nlet mensaje = '';\nswitch (r.tipo) {\n  case 'PAGO_SALDO':\n    mensaje = `🧾 *Recordatorio de pago — STG*\\n\\nHola ${nombre}, te recordamos que tenés un saldo pendiente de *USD ${saldoPendiente}* para tu reserva ${rsv.numeroReserva} (${ruta} - ${fechaViaje}).\\n\\nPara evitar la cancelación automática, regularizá el pago hasta 7 días antes del viaje. Cualquier consulta, escribinos por acá. ✈️`;\n    break;\n  case 'CHECK_IN':\n    mensaje = `✈️ *¡Se viene tu viaje!*\\n\\nHola ${nombre}, recordá hacer el check-in online de tu vuelo (${ruta} - ${fechaViaje}). La mayoría de las aerolíneas lo habilitan 24-48 horas antes.\\n\\n¡Buen viaje! 🌍`;\n    break;\n  case 'POST_VIAJE':\n    mensaje = `🎉 *¿Qué tal el viaje?*\\n\\nHola ${nombre}, esperamos que la hayas pasado increíble en ${v.destino?.nombre || 'tu destino'}. Nos encantaría saber cómo fue tu experiencia para seguir mejorando.\\n\\n¿Nos dejás un comentario o una calificación? 🙏`;\n    break;\n  case 'CLIMA':\n    mensaje = `🌤️ *Antes de viajar*\\n\\nHola ${nombre}, en unos días salís hacia ${v.destino?.nombre || 'tu destino'} (${ruta} - ${fechaViaje}). Te recomendamos revisar el pronóstico para armar la valija. ¡Cualquier duda, escribinos! 🧳`;\n    break;\n  default:\n    mensaje = `Hola ${nombre}, te escribimos desde STG sobre tu reserva ${rsv.numeroReserva}.`;\n}\n\nreturn { json: {\n  recordatorioId: r.id,\n  tipo: r.tipo,\n  telefono: normalizarTelefono(cli.telefono),\n  mensaje,\n  reservaNumero: rsv.numeroReserva,\n} };\n"
+      },
+      "id": "d5885143-9fa1-4f2f-af6f-e61e378b855b",
+      "name": "Armar mensaje según tipo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "433a6782-c39e-4bab-8e94-c1e938a55e7e",
+      "name": "Uno por uno",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        900,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c7d27ae9-0745-441e-871e-8f8063648a30",
+              "leftValue": "={{ $json.telefono }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "55bce417-8cc1-42a5-9b1b-19a64219da1a",
+      "name": "¿Tiene teléfono?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.API_BASE }}/api/recordatorios/{{ $json.recordatorioId }}/ejecutar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.N8N_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "method": "PATCH",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"resultado\": \"No enviado: el cliente no tiene teléfono cargado\"\n}"
+      },
+      "id": "4fbcbca8-0dfd-4cba-8a9c-8212eb5d77bb",
+      "name": "Marcar sin teléfono",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.API_BASE }}/api/recordatorios/{{ $json.recordatorioId }}/ejecutar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.N8N_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "method": "PATCH",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"resultado\": \"Enviando WhatsApp…\"\n}"
+      },
+      "id": "ff2be0bc-9ac2-4155-a429-b32acb5d049a",
+      "name": "Tomar recordatorio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        120
+      ],
+      "notes": "Toma el recordatorio ANTES de mandar: si otra corrida ya lo tomó, el back responde yaEjecutado=true y no se envía dos veces."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "0c28224c-d145-4d22-9d44-76983ef35a23",
+              "leftValue": "={{ $json.yaEjecutado }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1e51a70d-d26d-4b7e-87da-d7dd767caa9a",
+      "name": "¿Estaba pendiente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_WHATSAPP_FROM || '+14155238886' }}",
+        "to": "={{ $('Armar mensaje según tipo').item.json.telefono }}",
+        "toWhatsapp": true,
+        "message": "={{ $('Armar mensaje según tipo').item.json.mensaje }}",
+        "options": {}
+      },
+      "id": "e6316837-5ef1-465b-90bb-b7b885b804d2",
+      "name": "Twilio - Enviar al cliente",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        40
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "V7Lw9OqUQODGDdsI",
+          "name": "Twilio account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.API_BASE }}/api/recordatorios/{{ $('Armar mensaje según tipo').item.json.recordatorioId }}/resultado",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.N8N_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "method": "PATCH",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ok: true, detalle: 'Enviado · SID ' + $json.sid + ' · estado ' + $json.status }) }}"
+      },
+      "id": "bbc21068-1f57-4efe-b7bf-45b68eafaa23",
+      "name": "Registrar envío OK",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.API_BASE }}/api/recordatorios/{{ $('Armar mensaje según tipo').item.json.recordatorioId }}/resultado",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.N8N_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "method": "PATCH",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ok: false, detalle: String($json.error?.message ?? $json.error ?? $json.message ?? 'Error de Twilio').slice(0, 300) }) }}"
+      },
+      "id": "77ccc1f9-9282-4863-9b24-a9593bf62ed7",
+      "name": "Registrar error de envío",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        140
+      ],
+      "notes": "Vuelve el recordatorio a pendiente con el error a la vista; la próxima corrida lo reintenta."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Traduce la respuesta del back (el recordatorio, tal como quedó después\n// de registrar el intento) a un resultado simple { ok, detalle, sid }.\n// Es lo que recibe el panel cuando el envío fue manual.\nconst r = $json;\nconst resultado = String(r.resultado || '');\nif (r.yaEjecutado === true) {\n  return { json: { ok: false, recordatorioId: r.id, sid: null,\n    detalle: 'Otro proceso ya lo había tomado; no se reenvió para no duplicar el mensaje.' } };\n}\nconst ok = r.ejecutado === true && resultado.startsWith('Enviado');\nconst sid = (resultado.match(/SID (\\w+)/) || [])[1] || null;\nreturn { json: { ok, recordatorioId: r.id, sid, detalle: resultado || (ok ? 'Enviado' : 'Sin detalle') } };\n"
+      },
+      "id": "d90ea779-9226-4e2f-8a52-693d9f2416e0",
+      "name": "Resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "seconds"
+      },
+      "id": "dc901419-3a4f-4826-9dda-5bddf24db35e",
+      "name": "Esperar 3 s (límite del sandbox)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2440,
+        160
+      ],
+      "webhookId": "33244fb4-5066-46e9-ae94-e45ab84f3d86",
+      "notes": "El número sandbox de Twilio acepta un mensaje cada 3 segundos."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "3475ae94-23a7-450c-82dd-a9a2e1bfa1a2",
+              "leftValue": "={{ $('Webhook envío manual').isExecuted }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e8ba6015-733a-4dc1-abe6-5dc12778cc92",
+      "name": "¿Vino del botón?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "9da799ff-e1aa-45e4-afcc-8de652fa3d24",
+      "name": "Responder al back",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1340,
+        -140
       ]
     }
   ],
@@ -143,14 +468,43 @@
       "main": [
         [
           {
-            "node": "Uno por uno",
+            "node": "Armar mensaje según tipo",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Uno por uno": {
+    "Webhook envío manual": {
+      "main": [
+        [
+          {
+            "node": "¿API key válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿API key válida?": {
+      "main": [
+        [
+          {
+            "node": "GET recordatorio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET recordatorio": {
       "main": [
         [
           {
@@ -165,7 +519,83 @@
       "main": [
         [
           {
+            "node": "Uno por uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Uno por uno": {
+      "main": [
+        [
+          {
+            "node": "¿Vino del botón?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Tiene teléfono?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Tiene teléfono?": {
+      "main": [
+        [
+          {
+            "node": "Tomar recordatorio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar sin teléfono",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar sin teléfono": {
+      "main": [
+        [
+          {
+            "node": "Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tomar recordatorio": {
+      "main": [
+        [
+          {
+            "node": "¿Estaba pendiente?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Estaba pendiente?": {
+      "main": [
+        [
+          {
             "node": "Twilio - Enviar al cliente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resultado",
             "type": "main",
             "index": 0
           }
@@ -176,24 +606,85 @@
       "main": [
         [
           {
-            "node": "Marcar como ejecutado",
+            "node": "Registrar envío OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar error de envío",
             "type": "main",
             "index": 0
           }
         ]
       ]
-    }
-  },
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "stg"
     },
-    {
-      "name": "recordatorios"
+    "Registrar envío OK": {
+      "main": [
+        [
+          {
+            "node": "Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar error de envío": {
+      "main": [
+        [
+          {
+            "node": "Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resultado": {
+      "main": [
+        [
+          {
+            "node": "Esperar 3 s (límite del sandbox)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar 3 s (límite del sandbox)": {
+      "main": [
+        [
+          {
+            "node": "Uno por uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Vino del botón?": {
+      "main": [
+        [
+          {
+            "node": "Responder al back",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
     }
-  ],
-  "active": false
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Argentina/Buenos_Aires"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
 }

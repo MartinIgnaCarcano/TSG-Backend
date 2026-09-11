@@ -6,7 +6,7 @@
 import type { ClienteCompleto } from './cliente'
 import type { Destino } from './cotizacion'
 
-export type TipoRecordatorio = 'PAGO_SALDO' | 'CHECK_IN' | 'POST_VIAJE' | 'CLIMA' | 'VOUCHER'
+export type TipoRecordatorio = 'PAGO_SALDO' | 'CHECK_IN' | 'POST_VIAJE' | 'CLIMA' | 'VOUCHER' | 'CONTRATO'
 
 export interface RecordatorioCompleto {
   id: string

@@ -4,9 +4,33 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../lib/prisma'
 import { validateBody } from '../middleware/validate'
-import { crearRecordatorioSchema, ejecutarRecordatorioSchema } from '../schemas/recordatorio.schema'
+import {
+  crearRecordatorioSchema,
+  ejecutarRecordatorioSchema,
+  resultadoEnvioSchema,
+} from '../schemas/recordatorio.schema'
+import { config } from '../config'
+import { llamarWebhookN8n } from '../lib/n8n'
 
 const router = Router()
+
+// Lo que necesita n8n para armar el mensaje (cliente + ruta del viaje).
+// Lo comparten el listado del cron y el GET por id que usa el envío
+// manual, así el nodo que arma el texto recibe siempre la misma forma.
+const INCLUDE_RESERVA = {
+  reserva: {
+    include: {
+      cliente: true,
+      cotizacion: {
+        include: {
+          viaje: {
+            include: { origen: true, destino: true },
+          },
+        },
+      },
+    },
+  },
+} as const
 
 // GET /api/recordatorios?pendientes=true&fecha=YYYY-MM-DD
 // Devuelve los recordatorios cuya fechaProgramada <= fin del día indicado
@@ -25,20 +49,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
         ...(pendientes && { fechaProgramada: { lte: finDelDia } }),
         ...(reservaId && { reservaId }),
       },
-      include: {
-        reserva: {
-          include: {
-            cliente: true,
-            cotizacion: {
-              include: {
-                viaje: {
-                  include: { origen: true, destino: true },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: INCLUDE_RESERVA,
       orderBy: { fechaProgramada: 'asc' },
     })
     res.json(recordatorios)
@@ -52,7 +63,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const r = await prisma.recordatorio.findUnique({
       where: { id: req.params.id as string },
-      include: { reserva: { include: { cliente: true } } },
+      include: INCLUDE_RESERVA,
     })
     if (!r) return res.status(404).json({ error: 'Recordatorio no encontrado' })
     res.json(r)
@@ -98,6 +109,72 @@ router.patch('/:id/ejecutar', validateBody(ejecutarRecordatorioSchema), async (r
     if (!r) return res.status(404).json({ error: 'Recordatorio no encontrado' })
 
     res.json({ ...r, yaEjecutado: marcado.count === 0 })
+  } catch (e) {
+    next(e)
+  }
+})
+
+// PATCH /api/recordatorios/:id/resultado — n8n informa cómo terminó el envío
+//
+// El flujo ahora TOMA el recordatorio antes de mandar (PATCH /ejecutar, que
+// es condicional), y recién después llama a Twilio. Eso cierra la deuda de
+// A-6: dos corridas superpuestas del cron ya no mandan dos WhatsApp, porque
+// la segunda recibe `yaEjecutado: true` y no envía. La contracara es que si
+// Twilio falla, el recordatorio quedó marcado como ejecutado sin haber
+// salido. Este endpoint lo resuelve: con ok=false lo devuelve a pendiente
+// (con el error a la vista en el panel) y la próxima corrida lo reintenta.
+router.patch('/:id/resultado', validateBody(resultadoEnvioSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string
+    const { ok, detalle } = req.body as { ok: boolean; detalle?: string }
+
+    const r = ok
+      ? await prisma.recordatorio.update({
+          where: { id },
+          data: { ejecutado: true, resultado: detalle || 'Enviado' },
+        })
+      : await prisma.recordatorio.update({
+          where: { id },
+          data: {
+            ejecutado: false,
+            fechaEjecucion: null,
+            resultado: `Error al enviar: ${detalle || 'sin detalle'}`.slice(0, 500),
+          },
+        })
+    res.json(r)
+  } catch (e) {
+    next(e)
+  }
+})
+
+// POST /api/recordatorios/:id/enviar — "Enviar ahora" desde el panel
+//
+// Antes el botón del front solo hacía PATCH /ejecutar: marcaba el
+// recordatorio y no mandaba nada. Ahora dispara el mismo camino que el cron
+// (Flujo3, entrada por webhook) y espera el resultado del envío, así el
+// operador ve si el WhatsApp salió o por qué no.
+router.post('/:id/enviar', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string
+    const r = await prisma.recordatorio.findUnique({ where: { id }, include: INCLUDE_RESERVA })
+    if (!r) return res.status(404).json({ error: 'Recordatorio no encontrado' })
+    if (r.ejecutado) {
+      return res.status(409).json({ error: 'Este recordatorio ya fue enviado o marcado como ejecutado.' })
+    }
+    if (!r.reserva?.cliente?.telefono) {
+      return res.status(422).json({ error: 'El cliente de esta reserva no tiene teléfono cargado.' })
+    }
+
+    const resultado = await llamarWebhookN8n<{ ok?: boolean; detalle?: string; sid?: string }>(
+      config.n8nWebhookRecordatorioUrl,
+      { recordatorioId: id },
+      { nombre: 'Flujo3 · envío manual', timeoutMs: 30_000 },
+    )
+
+    if (!resultado?.ok) {
+      return res.status(502).json({ error: `No se pudo enviar el WhatsApp: ${resultado?.detalle || 'n8n no informó el motivo'}` })
+    }
+    res.json({ ok: true, detalle: resultado.detalle, sid: resultado.sid })
   } catch (e) {
     next(e)
   }
