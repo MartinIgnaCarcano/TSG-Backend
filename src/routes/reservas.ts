@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma'
 import { EstadoReserva, TipoDocumento } from '@prisma/client'
 import { construirVoucherHtml, VoucherSnapshot } from '../templates/voucher.template'
 import { construirContratoHtml, ContratoSnapshot } from '../templates/contrato.template'
-import { generarYGuardarDocumento, firmarUrlDocumento } from '../lib/documentos'
+import { generarYGuardarDocumento, firmarUrlDocumento, urlPublicaDocumento } from '../lib/documentos'
 import { notificarDocumentoEmitido } from '../lib/notificaciones'
 import { validateBody } from '../middleware/validate'
 import {
@@ -147,7 +147,16 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
       },
     })
     if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' })
-    res.json(conSaldoPendiente(reserva))
+    // `url` en la base es la ruta interna del archivo (/storage/documentos/…),
+    // que no se sirve: sin esto el botón "Ver" del panel pegaba a una ruta
+    // inexistente y el back respondía 401. Se reemplaza por el link firmado,
+    // igual que en GET /api/documentos.
+    res.json(
+      conSaldoPendiente({
+        ...reserva,
+        documentos: reserva.documentos.map((d) => ({ ...d, url: urlPublicaDocumento(d) })),
+      }),
+    )
   } catch (e) {
     next(e)
   }
